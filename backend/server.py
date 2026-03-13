@@ -9,9 +9,12 @@ from typing import List, Optional, Any
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
-import os, uuid, bcrypt, jwt, logging, random, string, smtplib
+import os, uuid, bcrypt, jwt, logging, random, string, smtplib, asyncio
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from concurrent.futures import ThreadPoolExecutor
+
+_email_executor = ThreadPoolExecutor(max_workers=2)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env", override=True)
@@ -53,23 +56,39 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ── Email ────────────────────────────────────────────────────────────────────
-def send_email(to: str, subject: str, body_html: str):
-    if not SMTP_HOST or not SMTP_USER or not SMTP_PASS:
-        logger.warning("SMTP not configured, skipping email to %s", to)
-        return
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = SMTP_USER
-        msg["To"] = to
-        msg.attach(MIMEText(body_html, "html"))
+def _send_email_sync(to: str, subject: str, body_html: str):
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = SMTP_USER
+    msg["To"] = to
+    msg.attach(MIMEText(body_html, "html"))
+    # Use SSL for port 465, STARTTLS for everything else
+    if SMTP_PORT == 465:
+        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as server:
+            server.ehlo()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(SMTP_USER, to, msg.as_string())
+    else:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
             server.ehlo()
             server.starttls()
+            server.ehlo()
             server.login(SMTP_USER, SMTP_PASS)
             server.sendmail(SMTP_USER, to, msg.as_string())
+
+async def send_email(to: str, subject: str, body_html: str, code: str = ""):
+    if not SMTP_HOST or not SMTP_USER or not SMTP_PASS:
+        logger.warning("SMTP not configured — verification code for %s: %s", to, code)
+        return
+    try:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(_email_executor, _send_email_sync, to, subject, body_html)
+        logger.info("Email sent to %s", to)
     except Exception as e:
-        logger.error("Failed to send email: %s", e)
+        logger.error("Failed to send email to %s: %s", to, e)
+        # Log code to console so the app still works even if SMTP is misconfigured
+        if code:
+            logger.warning("SMTP failed — verification code for %s is: %s", to, code)
 
 def generate_code(length: int = 6) -> str:
     return "".join(random.choices(string.digits, k=length))
@@ -227,7 +246,7 @@ async def register(data: RegisterInput):
         }},
         upsert=True,
     )
-    send_email(
+    await send_email(
         to=email,
         subject="Verify your PRaww Reads account",
         body_html=f"""
@@ -238,6 +257,7 @@ async def register(data: RegisterInput):
           <p style="color:#9ca3af;font-size:13px;">If you did not request this, you can safely ignore this email.</p>
         </div>
         """,
+        code=code,
     )
     return {"message": "Verification code sent. Check your email.", "email": email}
 
