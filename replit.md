@@ -32,8 +32,14 @@ memory/        - PRD.md and CHANGELOG.md
 
 ## Environment
 
-- **Backend**: `backend/.env` contains `MONGO_URL`, `DB_NAME`, `JWT_SECRET`
+- **Backend**: `backend/.env` contains `MONGO_URL`, `DB_NAME`, `JWT_SECRET`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
 - **Frontend**: `frontend/.env` has `REACT_APP_BACKEND_URL=` (empty — uses relative paths)
+
+## Security Features
+
+- **Email verification on signup**: Registration is a two-step flow — user submits details, receives a 6-digit code by email (expires in 15 min), then enters the code to complete account creation. Codes stored in `pending_registrations` collection.
+- **Username uniqueness**: Enforced at both registration (auto-suffix) and profile update (409 if taken).
+- **Username change cooldown**: Users can only change their username once every 30 days. The `username_changed_at` field tracks this. The profile edit UI shows a lock icon with days remaining when locked.
 
 ## Key Files
 
