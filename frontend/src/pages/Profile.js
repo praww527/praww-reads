@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { ArrowLeft, BookOpen, Pencil, Loader2, Users, Camera, X, Check, BadgeCheck } from "lucide-react";
+import { ArrowLeft, BookOpen, Pencil, Loader2, Users, Camera, X, Check, BadgeCheck, Lock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 async function resizeImage(file, maxBytes = 2 * 1024 * 1024) {
@@ -41,6 +41,7 @@ export default function Profile() {
   const [imagePreview, setImagePreview] = useState("");
   const [imageProcessing, setImageProcessing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState({ can_change: true, days_left: 0 });
   const fileRef = useRef(null);
 
   const isOwnProfile = !userId || userId === "me" || userId === me?.id;
@@ -65,7 +66,7 @@ export default function Profile() {
     }
   }
 
-  function openEdit() {
+  async function openEdit() {
     setEditForm({
       username: profile?.username || "",
       bio: profile?.bio || "",
@@ -74,6 +75,12 @@ export default function Profile() {
       profile_image_url: profile?.profile_image_url || "",
     });
     setImagePreview(profile?.profile_image_url || "");
+    try {
+      const status = await apiFetch("/api/profile/username-status");
+      setUsernameStatus(status);
+    } catch {
+      setUsernameStatus({ can_change: true, days_left: 0 });
+    }
     setEditOpen(true);
   }
 
@@ -298,10 +305,31 @@ export default function Profile() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Username</label>
-                <input data-testid="edit-username-input" value={editForm.username} onChange={e => setEditForm(f => ({ ...f, username: e.target.value }))}
-                  placeholder="@username"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Username</label>
+                  {!usernameStatus.can_change && (
+                    <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                      <Lock className="h-3 w-3" />
+                      Locked for {usernameStatus.days_left} more day{usernameStatus.days_left !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    data-testid="edit-username-input"
+                    value={editForm.username}
+                    onChange={e => !usernameStatus.can_change ? undefined : setEditForm(f => ({ ...f, username: e.target.value }))}
+                    readOnly={!usernameStatus.can_change}
+                    placeholder="@username"
+                    className={`w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary pr-8 ${!usernameStatus.can_change ? "opacity-60 cursor-not-allowed bg-muted" : ""}`}
+                  />
+                  {!usernameStatus.can_change && (
+                    <Lock className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
+                {!usernameStatus.can_change && (
+                  <p className="text-xs text-muted-foreground">You can only change your username once every 30 days.</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Bio</label>

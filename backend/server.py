@@ -9,7 +9,9 @@ from typing import List, Optional, Any
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
-import os, uuid, bcrypt, jwt, logging
+import os, uuid, bcrypt, jwt, logging, random, string, smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env", override=True)
@@ -19,6 +21,13 @@ DB_NAME = os.environ["DB_NAME"]
 SECRET_KEY = os.environ.get("JWT_SECRET", "prawwreads-secret-key-2024")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24 * 7  # 7 days
+
+SMTP_HOST = os.environ.get("SMTP_HOST", "")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASS = os.environ.get("SMTP_PASS", "")
+
+USERNAME_CHANGE_DAYS = 30
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
@@ -42,6 +51,28 @@ app.add_middleware(
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# ── Email ────────────────────────────────────────────────────────────────────
+def send_email(to: str, subject: str, body_html: str):
+    if not SMTP_HOST or not SMTP_USER or not SMTP_PASS:
+        logger.warning("SMTP not configured, skipping email to %s", to)
+        return
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = SMTP_USER
+        msg["To"] = to
+        msg.attach(MIMEText(body_html, "html"))
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(SMTP_USER, to, msg.as_string())
+    except Exception as e:
+        logger.error("Failed to send email: %s", e)
+
+def generate_code(length: int = 6) -> str:
+    return "".join(random.choices(string.digits, k=length))
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 def hash_password(plain: str) -> str:
@@ -103,6 +134,10 @@ class RegisterInput(BaseModel):
     password: str
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+
+class VerifyEmailInput(BaseModel):
+    email: str
+    code: str
 
 class LoginInput(BaseModel):
     email: str
@@ -167,7 +202,8 @@ class SendMessageInput(BaseModel):
 
 # ── Auth Routes ─────────────────────────────────────────────────────────────
 @api_router.post("/auth/register")
-async def register(data: RegisterInput, response: Response):
+async def register(data: RegisterInput):
+    """Step 1: validate inputs, store pending registration, send verification code."""
     email = data.email.strip().lower()
     if not email or "@" not in email:
         raise HTTPException(400, "Valid email required")
@@ -176,9 +212,54 @@ async def register(data: RegisterInput, response: Response):
     existing = await db.users.find_one({"email": email}, {"_id": 0})
     if existing:
         raise HTTPException(409, "Email already in use")
+    code = generate_code()
+    expires = datetime.now(timezone.utc) + timedelta(minutes=15)
+    await db.pending_registrations.update_one(
+        {"email": email},
+        {"$set": {
+            "email": email,
+            "password_hash": hash_password(data.password),
+            "first_name": data.first_name or "",
+            "last_name": data.last_name or "",
+            "code": code,
+            "expires_at": expires.isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }},
+        upsert=True,
+    )
+    send_email(
+        to=email,
+        subject="Verify your PRaww Reads account",
+        body_html=f"""
+        <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;">
+          <h2 style="margin-bottom:8px;">Welcome to PRaww Reads!</h2>
+          <p style="color:#6b7280;">Enter the code below to verify your email address. It expires in 15 minutes.</p>
+          <div style="font-size:36px;font-weight:700;letter-spacing:8px;text-align:center;padding:24px 0;color:#4f46e5;">{code}</div>
+          <p style="color:#9ca3af;font-size:13px;">If you did not request this, you can safely ignore this email.</p>
+        </div>
+        """,
+    )
+    return {"message": "Verification code sent. Check your email.", "email": email}
+
+@api_router.post("/auth/verify-email")
+async def verify_email(data: VerifyEmailInput, response: Response):
+    """Step 2: verify the code and create the account."""
+    email = data.email.strip().lower()
+    pending = await db.pending_registrations.find_one({"email": email})
+    if not pending:
+        raise HTTPException(404, "No pending registration found. Please sign up first.")
+    expires_at = datetime.fromisoformat(pending["expires_at"])
+    if datetime.now(timezone.utc) > expires_at:
+        await db.pending_registrations.delete_one({"email": email})
+        raise HTTPException(410, "Verification code expired. Please sign up again.")
+    if pending["code"] != data.code.strip():
+        raise HTTPException(400, "Invalid verification code.")
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        await db.pending_registrations.delete_one({"email": email})
+        raise HTTPException(409, "Email already in use.")
     user_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
-    # Auto-generate username from email
     base_username = email.split("@")[0].replace(".", "_").replace("+", "_")
     username_candidate = base_username
     suffix = 1
@@ -188,16 +269,19 @@ async def register(data: RegisterInput, response: Response):
     user = {
         "id": user_id,
         "email": email,
-        "password_hash": hash_password(data.password),
-        "first_name": data.first_name or "",
-        "last_name": data.last_name or "",
+        "password_hash": pending["password_hash"],
+        "first_name": pending.get("first_name", ""),
+        "last_name": pending.get("last_name", ""),
         "username": username_candidate,
+        "username_changed_at": now,
         "bio": "",
         "profile_image_url": "",
+        "email_verified": True,
         "created_at": now,
         "updated_at": now,
     }
     await db.users.insert_one(user)
+    await db.pending_registrations.delete_one({"email": email})
     token = create_token(user_id)
     response.set_cookie("praww_token", token, httponly=True, max_age=3600 * ACCESS_TOKEN_EXPIRE_HOURS, samesite="lax")
     result = safe_user(to_str_id(user))
@@ -249,10 +333,47 @@ async def get_profile(user_id: str, current_user: Optional[dict] = Depends(get_o
 @api_router.patch("/profile")
 async def update_profile(data: UpdateProfileInput, current_user: dict = Depends(get_current_user)):
     updates = {k: v for k, v in data.model_dump().items() if v is not None}
-    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
+
+    if "username" in updates and updates["username"] != current_user.get("username"):
+        new_username = updates["username"].strip()
+        if not new_username:
+            raise HTTPException(400, "Username cannot be empty")
+        if len(new_username) < 3:
+            raise HTTPException(400, "Username must be at least 3 characters")
+        last_changed_str = current_user.get("username_changed_at")
+        if last_changed_str:
+            last_changed = datetime.fromisoformat(last_changed_str)
+            if last_changed.tzinfo is None:
+                last_changed = last_changed.replace(tzinfo=timezone.utc)
+            days_since = (now - last_changed).days
+            if days_since < USERNAME_CHANGE_DAYS:
+                days_left = USERNAME_CHANGE_DAYS - days_since
+                raise HTTPException(400, f"You can only change your username once every {USERNAME_CHANGE_DAYS} days. You can change it again in {days_left} day(s).")
+        taken = await db.users.find_one({"username": new_username, "id": {"$ne": current_user["id"]}})
+        if taken:
+            raise HTTPException(409, "That username is already taken. Please choose a different one.")
+        updates["username_changed_at"] = now.isoformat()
+
+    updates["updated_at"] = now.isoformat()
     await db.users.update_one({"id": current_user["id"]}, {"$set": updates})
     updated = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
     return safe_user(updated)
+
+@api_router.get("/profile/username-status")
+async def username_status(current_user: dict = Depends(get_current_user)):
+    """Returns whether the user can change their username and how many days remain."""
+    now = datetime.now(timezone.utc)
+    last_changed_str = current_user.get("username_changed_at")
+    if not last_changed_str:
+        return {"can_change": True, "days_left": 0}
+    last_changed = datetime.fromisoformat(last_changed_str)
+    if last_changed.tzinfo is None:
+        last_changed = last_changed.replace(tzinfo=timezone.utc)
+    days_since = (now - last_changed).days
+    if days_since >= USERNAME_CHANGE_DAYS:
+        return {"can_change": True, "days_left": 0}
+    return {"can_change": False, "days_left": USERNAME_CHANGE_DAYS - days_since}
 
 # ── Follow Routes ───────────────────────────────────────────────────────────
 @api_router.post("/follow/{user_id}")

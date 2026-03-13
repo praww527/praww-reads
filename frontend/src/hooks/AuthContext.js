@@ -36,6 +36,14 @@ export function AuthProvider({ children }) {
       method: "POST",
       body: JSON.stringify({ email, password, first_name: firstName, last_name: lastName }),
     });
+    return data;
+  };
+
+  const verifyEmail = async (email, code) => {
+    const data = await apiFetch("/api/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    });
     setToken(data.token);
     const { token, ...user } = data;
     setUser(user);
@@ -51,7 +59,7 @@ export function AuthProvider({ children }) {
   const refreshUser = fetchUser;
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, loading, login, register, verifyEmail, logout, refreshUser, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );
