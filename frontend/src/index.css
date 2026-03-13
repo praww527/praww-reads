@@ -1,0 +1,130 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: 'Inter', sans-serif;
+    --font-serif: 'Playfair Display', serif;
+
+    /* Elegant Light Theme - Creamy backgrounds, rich dark typography */
+    --background: 45 29% 97%;
+    --foreground: 0 0% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+
+    /* Deep literary blue/slate */
+    --primary: 215 28% 17%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 45 15% 90%;
+    --secondary-foreground: 215 28% 17%;
+
+    --muted: 45 15% 90%;
+    --muted-foreground: 215 10% 40%;
+
+    --accent: 45 20% 88%;
+    --accent-foreground: 215 28% 17%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 45 15% 85%;
+    --input: 45 15% 85%;
+    --ring: 215 28% 17%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    /* Sophisticated Dark Theme - Midnight slate and soft gold */
+    --background: 220 15% 10%;
+    --foreground: 0 0% 95%;
+
+    --card: 220 15% 12%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 220 15% 12%;
+    --popover-foreground: 0 0% 95%;
+
+    /* Soft gold accent */
+    --primary: 46 65% 52%;
+    --primary-foreground: 220 15% 10%;
+
+    --secondary: 220 15% 15%;
+    --secondary-foreground: 0 0% 95%;
+
+    --muted: 220 15% 15%;
+    --muted-foreground: 220 10% 65%;
+
+    --accent: 220 15% 18%;
+    --accent-foreground: 46 65% 52%;
+
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 95%;
+
+    --border: 220 15% 18%;
+    --input: 220 15% 18%;
+    --ring: 46 65% 52%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-serif);
+  }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+    body {
+        @apply bg-background text-foreground;
+    }
+}
+
+@layer base {
+    [data-debug-wrapper="true"] {
+        display: contents !important;
+    }
+
+    [data-debug-wrapper="true"] > * {
+        margin-left: inherit;
+        margin-right: inherit;
+        margin-top: inherit;
+        margin-bottom: inherit;
+        padding-left: inherit;
+        padding-right: inherit;
+        padding-top: inherit;
+        padding-bottom: inherit;
+        column-gap: inherit;
+        row-gap: inherit;
+        gap: inherit;
+        border-left-width: inherit;
+        border-right-width: inherit;
+        border-top-width: inherit;
+        border-bottom-width: inherit;
+        border-left-style: inherit;
+        border-right-style: inherit;
+        border-top-style: inherit;
+        border-bottom-style: inherit;
+        border-left-color: inherit;
+        border-right-color: inherit;
+        border-top-color: inherit;
+        border-bottom-color: inherit;
+    }
+}
