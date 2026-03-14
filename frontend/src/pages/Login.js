@@ -11,6 +11,8 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
@@ -29,7 +31,15 @@ export default function LoginPage() {
     setMode(m);
     setError("");
     setVerifyStep(false);
+    setShowLoginPrompt(false);
     setCode(["", "", "", "", "", ""]);
+  }
+
+  function switchToLoginWithEmail(email) {
+    setLoginEmail(email);
+    setMode("login");
+    setError("");
+    setShowLoginPrompt(false);
   }
 
   async function handleLogin(e) {
@@ -59,10 +69,18 @@ export default function LoginPage() {
       await register(regEmail, regPassword, regFirstName, regLastName);
       setVerifyEmail_(regEmail);
       setVerifyStep(true);
+      setShowLoginPrompt(false);
       setCode(["", "", "", "", "", ""]);
       setTimeout(() => codeRefs[0].current?.focus(), 100);
     } catch (err) {
-      setError(err.message || "Registration failed");
+      const msg = err.message || "Registration failed";
+      if (msg.toLowerCase().includes("already exists")) {
+        setShowLoginPrompt(true);
+        setError("");
+      } else {
+        setShowLoginPrompt(false);
+        setError(msg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -258,11 +276,23 @@ export default function LoginPage() {
                 <input data-testid="register-confirm-password" type="password" placeholder="••••••••" value={regConfirm} onChange={e => setRegConfirm(e.target.value)}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
+              {showLoginPrompt && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm space-y-2">
+                  <p className="font-medium text-amber-900">An account with this email already exists.</p>
+                  <p className="text-amber-700">Would you like to log in instead?</p>
+                  <button type="button" onClick={() => switchToLoginWithEmail(regEmail)}
+                    className="w-full h-9 rounded-md bg-primary text-primary-foreground font-semibold hover:bg-primary/90 text-sm">
+                    Log in with this email
+                  </button>
+                </div>
+              )}
               {error && <p data-testid="register-error" className="text-sm text-destructive">{error}</p>}
-              <button data-testid="register-submit" type="submit" disabled={submitting}
-                className="w-full h-11 mt-2 rounded-md bg-primary text-primary-foreground font-semibold hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
-                {submitting && <Loader2 className="h-4 w-4 animate-spin" />} Send Verification Code
-              </button>
+              {!showLoginPrompt && (
+                <button data-testid="register-submit" type="submit" disabled={submitting}
+                  className="w-full h-11 mt-2 rounded-md bg-primary text-primary-foreground font-semibold hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
+                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />} Send Verification Code
+                </button>
+              )}
               <p className="text-center text-sm text-muted-foreground">Already have an account?{" "}
                 <button type="button" onClick={() => switchMode("login")} className="text-primary font-medium hover:underline">Log in</button>
               </p>
