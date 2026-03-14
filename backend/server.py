@@ -203,7 +203,7 @@ class ChangePasswordInput(BaseModel):
 
 class CreateStoryInput(BaseModel):
     title: str
-    content: str
+    content: Optional[str] = ""
     description: Optional[str] = None
     cover_image_url: Optional[str] = None
     is_paid: Optional[bool] = False

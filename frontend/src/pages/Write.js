@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { BookOpen, Plus, Trash2, Loader2, ChevronDown, ChevronUp, Camera, X, Lock } from "lucide-react";
+import { BookOpen, Plus, Trash2, Loader2, ChevronDown, ChevronUp, Camera, X, Lock, AlertCircle } from "lucide-react";
 
 async function resizeImage(file, maxBytes = 2 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
@@ -47,6 +47,7 @@ export default function Write() {
   const [submitting, setSubmitting] = useState(false);
   const [successId, setSuccessId] = useState(null);
   const [expandedChapter, setExpandedChapter] = useState(0);
+  const [error, setError] = useState("");
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -68,27 +69,36 @@ export default function Write() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!title.trim()) return;
-    if (useChapters && chapters.some(c => !c.title.trim() || !c.content.trim())) {
-      alert("All chapters must have a title and content.");
+    setError("");
+
+    if (!title.trim()) {
+      setError("Please enter a story title.");
       return;
     }
-    if (!useChapters && !content.trim()) {
-      alert("Please add some content to your story.");
+    if (useChapters) {
+      const badChapter = chapters.findIndex(c => !c.title.trim() || !c.content.trim());
+      if (badChapter !== -1) {
+        setExpandedChapter(badChapter);
+        setError(`Chapter ${badChapter + 1} must have both a title and content.`);
+        return;
+      }
+    } else if (!content.trim()) {
+      setError("Please add some content to your story.");
       return;
     }
     if (isPaid && (!price || price <= 0)) {
-      alert("Please set a valid price for your paid story.");
+      setError("Please set a valid price for your paid story.");
       return;
     }
+
     setSubmitting(true);
     try {
       const story = await apiFetch("/stories", {
         method: "POST",
         body: JSON.stringify({
-          title,
-          description,
-          content: useChapters ? chapters[0]?.content || "" : content,
+          title: title.trim(),
+          description: description.trim(),
+          content: useChapters ? "" : content.trim(),
           cover_image_url: coverImageUrl,
           is_paid: isPaid,
           price: isPaid ? price : 0,
@@ -98,13 +108,13 @@ export default function Write() {
         for (let i = 0; i < chapters.length; i++) {
           await apiFetch(`/stories/${story.id}/chapters`, {
             method: "POST",
-            body: JSON.stringify({ title: chapters[i].title, content: chapters[i].content, order_index: i }),
+            body: JSON.stringify({ title: chapters[i].title.trim(), content: chapters[i].content.trim(), order_index: i }),
           });
         }
       }
       setSuccessId(story.id);
     } catch (err) {
-      alert(err.message);
+      setError(err.message || "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -123,7 +133,7 @@ export default function Write() {
         <p className="text-muted-foreground">Your story is now live.</p>
         <div className="flex gap-3">
           <button onClick={() => navigate(`/stories/${successId}`)} className="rounded-lg bg-primary text-primary-foreground px-5 py-2 font-medium hover:bg-primary/90">View Story</button>
-          <button onClick={() => { setTitle(""); setDescription(""); setContent(""); setCoverImageUrl(""); setCoverPreview(null); setChapters([{ title: "", content: "" }]); setIsPaid(false); setPrice(20); setSuccessId(null); }}
+          <button onClick={() => { setTitle(""); setDescription(""); setContent(""); setCoverImageUrl(""); setCoverPreview(null); setChapters([{ title: "", content: "" }]); setIsPaid(false); setPrice(20); setSuccessId(null); setError(""); }}
             className="rounded-lg border border-border px-5 py-2 font-medium hover:bg-muted">Write Another</button>
         </div>
       </div>
@@ -133,7 +143,7 @@ export default function Write() {
   return (
     <div className="container mx-auto max-w-3xl px-4 py-10">
       <h1 className="font-serif text-4xl font-bold mb-8">Write a Story</h1>
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
 
         {/* Cover Image */}
         <div className="space-y-2">
@@ -159,9 +169,13 @@ export default function Write() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Story Title *</label>
-          <input required value={title} onChange={e => setTitle(e.target.value)} placeholder="Enter an engaging title..."
-            className="w-full rounded-xl border border-input bg-background px-4 py-3 text-lg font-serif focus:outline-none focus:ring-2 focus:ring-primary" />
+          <label className="text-sm font-medium">Story Title <span className="text-destructive">*</span></label>
+          <input
+            value={title}
+            onChange={e => { setTitle(e.target.value); if (error) setError(""); }}
+            placeholder="Enter an engaging title..."
+            className="w-full rounded-xl border border-input bg-background px-4 py-3 text-lg font-serif focus:outline-none focus:ring-2 focus:ring-primary"
+          />
         </div>
 
         <div className="space-y-1.5">
@@ -225,7 +239,7 @@ export default function Write() {
 
         {/* Chapters toggle */}
         <div className="flex items-center gap-3 p-4 rounded-xl border border-border bg-muted/20">
-          <input type="checkbox" id="use-chapters" checked={useChapters} onChange={e => setUseChapters(e.target.checked)} className="rounded" />
+          <input type="checkbox" id="use-chapters" checked={useChapters} onChange={e => { setUseChapters(e.target.checked); setError(""); }} className="rounded" />
           <label htmlFor="use-chapters" className="text-sm font-medium cursor-pointer">Organize into chapters</label>
         </div>
 
@@ -235,12 +249,12 @@ export default function Write() {
               <div key={i} className="border border-border rounded-xl overflow-hidden">
                 <div className="flex items-center gap-3 p-3 bg-muted/20 cursor-pointer" onClick={() => setExpandedChapter(expandedChapter === i ? -1 : i)}>
                   <span className="text-sm font-semibold text-muted-foreground">Chapter {i + 1}</span>
-                  <input value={ch.title} onChange={e => { const c = [...chapters]; c[i] = { ...c[i], title: e.target.value }; setChapters(c); }}
+                  <input value={ch.title} onChange={e => { const c = [...chapters]; c[i] = { ...c[i], title: e.target.value }; setChapters(c); if (error) setError(""); }}
                     placeholder={`Chapter ${i + 1} title`} onClick={e => e.stopPropagation()}
                     className="flex-1 bg-transparent text-sm font-medium focus:outline-none placeholder:text-muted-foreground" />
                   <div className="flex items-center gap-1">
                     {chapters.length > 1 && (
-                      <button type="button" onClick={e => { e.stopPropagation(); setChapters(chapters.filter((_, j) => j !== i)); }} className="p-1 text-muted-foreground hover:text-destructive">
+                      <button type="button" onClick={e => { e.stopPropagation(); setChapters(chapters.filter((_, j) => j !== i)); if (expandedChapter >= chapters.length - 1) setExpandedChapter(chapters.length - 2); }} className="p-1 text-muted-foreground hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     )}
@@ -248,7 +262,7 @@ export default function Write() {
                   </div>
                 </div>
                 {expandedChapter === i && (
-                  <textarea value={ch.content} onChange={e => { const c = [...chapters]; c[i] = { ...c[i], content: e.target.value }; setChapters(c); }}
+                  <textarea value={ch.content} onChange={e => { const c = [...chapters]; c[i] = { ...c[i], content: e.target.value }; setChapters(c); if (error) setError(""); }}
                     placeholder="Write your chapter content here..." rows={10}
                     className="w-full border-t border-border bg-background px-4 py-3 text-sm focus:outline-none resize-none" />
                 )}
@@ -261,13 +275,26 @@ export default function Write() {
           </div>
         ) : (
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Story Content *</label>
-            <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="Start writing your story..." rows={16}
-              className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none leading-relaxed" />
+            <label className="text-sm font-medium">Story Content <span className="text-destructive">*</span></label>
+            <textarea
+              value={content}
+              onChange={e => { setContent(e.target.value); if (error) setError(""); }}
+              placeholder="Start writing your story..."
+              rows={16}
+              className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none leading-relaxed"
+            />
           </div>
         )}
 
-        <button type="submit" disabled={submitting} data-testid="publish-story-btn"
+        {/* Error message */}
+        {error && (
+          <div className="flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 text-sm">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        <button type="submit" disabled={submitting}
           className="w-full rounded-xl bg-primary text-primary-foreground font-semibold py-3 hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2 transition-colors">
           {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
           {submitting ? "Publishing..." : isPaid ? `Publish Paid Story (R${price})` : "Publish Story"}
