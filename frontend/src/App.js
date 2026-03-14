@@ -3,6 +3,7 @@ import { AuthProvider } from "./hooks/AuthContext";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import Marketplace from "./pages/Marketplace";
 import BookDetail from "./pages/BookDetail";
 import StoryDetail from "./pages/StoryDetail";
@@ -22,6 +23,7 @@ function AppShell() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/books/:id" element={<BookDetail />} />
           <Route path="/stories/:id" element={<StoryDetail />} />

@@ -17,11 +17,16 @@ export default function Navbar() {
     if (searchOpen) setTimeout(() => searchInputRef.current?.focus(), 50);
   }, [searchOpen]);
 
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
   function handleSearchSubmit(e) {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}&type=all`);
       setSearchOpen(false);
+      setMobileOpen(false);
       setSearchQuery("");
     }
   }
@@ -32,6 +37,7 @@ export default function Navbar() {
     await logout();
     navigate("/");
     setDropdownOpen(false);
+    setMobileOpen(false);
   }
 
   const displayName = user?.first_name && user?.last_name
@@ -65,9 +71,9 @@ export default function Navbar() {
             ))}
           </div>
 
-          {/* Auth */}
+          {/* Right section */}
           <div className="flex items-center gap-2">
-            {/* Search bar */}
+            {/* Desktop search */}
             <div className="hidden sm:flex items-center">
               {searchOpen ? (
                 <form onSubmit={handleSearchSubmit} className="flex items-center gap-1">
@@ -94,13 +100,12 @@ export default function Navbar() {
                 </button>
               )}
             </div>
+
             {isAuthenticated ? (
               <div className="hidden sm:flex items-center gap-2">
-                {/* Inbox icon */}
                 <Link to="/inbox" className={`p-2 rounded-full hover:bg-muted transition-colors ${isActive("/inbox") ? "text-primary" : "text-muted-foreground"}`}>
                   <MessageCircle className="h-5 w-5" />
                 </Link>
-                {/* User dropdown */}
                 <div className="relative">
                   <button
                     data-testid="user-menu-btn"
@@ -134,10 +139,16 @@ export default function Navbar() {
                 </div>
               </div>
             ) : (
-              <Link to="/login" data-testid="login-nav-btn"
-                className="hidden sm:inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold hover:bg-primary/90 transition-colors">
-                Log In
-              </Link>
+              <div className="hidden sm:flex items-center gap-2">
+                <Link to="/login" data-testid="login-nav-btn"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:bg-muted transition-colors">
+                  Log In
+                </Link>
+                <Link to="/register"
+                  className="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold hover:bg-primary/90 transition-colors">
+                  Sign Up
+                </Link>
+              </div>
             )}
 
             {/* Mobile Menu Toggle */}
@@ -148,19 +159,26 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu — click outside to close but NOT on form/inputs */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-border bg-background px-4 pb-4 pt-2" onClick={() => setMobileOpen(false)}>
-          <form onSubmit={(e) => { e.preventDefault(); if (searchQuery.trim()) { navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}&type=all`); setMobileOpen(false); setSearchQuery(""); } }} className="relative mb-3">
+        <div className="md:hidden border-t border-border bg-background px-4 pb-4 pt-2">
+          {/* Mobile search — stopPropagation prevents accidental menu close */}
+          <form
+            onSubmit={handleSearchSubmit}
+            onClick={e => e.stopPropagation()}
+            className="relative mb-3"
+          >
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
+              onClick={e => e.stopPropagation()}
               placeholder="Search..."
               className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </form>
+
           <div className="space-y-1 mb-3">
             {navLinks.filter(l => !l.auth || isAuthenticated).map(l => (
               <Link key={l.to} to={l.to}
@@ -169,6 +187,7 @@ export default function Navbar() {
               </Link>
             ))}
           </div>
+
           {isAuthenticated ? (
             <div className="border-t border-border pt-3 space-y-1">
               <Link to="/inbox" className="block px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">Inbox</Link>
@@ -177,9 +196,14 @@ export default function Navbar() {
               <button onClick={handleLogout} className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/5">Log Out</button>
             </div>
           ) : (
-            <Link to="/login" className="block text-center mt-3 rounded-lg bg-primary text-primary-foreground py-2.5 text-sm font-semibold hover:bg-primary/90">
-              Log In / Sign Up
-            </Link>
+            <div className="flex gap-2 mt-3">
+              <Link to="/login" className="flex-1 text-center rounded-lg border border-border py-2.5 text-sm font-semibold hover:bg-muted transition-colors">
+                Log In
+              </Link>
+              <Link to="/register" className="flex-1 text-center rounded-lg bg-primary text-primary-foreground py-2.5 text-sm font-semibold hover:bg-primary/90 transition-colors">
+                Sign Up
+              </Link>
+            </div>
           )}
         </div>
       )}
