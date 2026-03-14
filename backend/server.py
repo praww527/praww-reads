@@ -968,6 +968,10 @@ async def create_indexes():
         await db.pending_registrations.create_index(
             "expires_at", expireAfterSeconds=0, background=True
         )
+        await db.story_views.create_index(
+            [("story_id", 1), ("viewer_key", 1)], unique=True, background=True
+        )
+        await db.story_views.create_index("story_id", background=True)
         logger.info("Database indexes created/verified")
     except Exception as e:
         logger.warning("Index creation warning: %s", e)

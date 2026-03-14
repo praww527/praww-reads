@@ -78,7 +78,7 @@ export default function LoginPage() {
       setTimeout(() => codeRefs[0].current?.focus(), 100);
     } catch (err) {
       const msg = err.message || "Registration failed";
-      if (msg.toLowerCase().includes("already exists")) {
+      if (err.status === 409 || msg.toLowerCase().includes("already exists")) {
         setShowLoginPrompt(true);
         setError("");
       } else {
@@ -99,7 +99,7 @@ export default function LoginPage() {
       setTimeout(() => codeRefs[0].current?.focus(), 100);
     } catch (err) {
       const msg = err.message || "Could not resend code";
-      if (msg.toLowerCase().includes("already exists")) {
+      if (err.status === 409 || msg.toLowerCase().includes("already exists")) {
         setVerifyStep(false);
         setShowLoginPrompt(true);
         setRegEmail(verifyEmail_);
@@ -150,7 +150,7 @@ export default function LoginPage() {
       navigate("/");
     } catch (err) {
       const msg = err.message || "Verification failed";
-      if (msg.toLowerCase().includes("already exists")) {
+      if (err.status === 409 || msg.toLowerCase().includes("already exists")) {
         setVerifyStep(false);
         setShowLoginPrompt(true);
         setRegEmail(verifyEmail_);

@@ -51,6 +51,21 @@ memory/        - PRD.md and CHANGELOG.md
 
 Collections: `users`, `stories`, `chapters`, `story_likes`, `story_favorites`, `story_progress`, `story_comments`, `comment_likes`, `books`, `messages`, `follows`, `book_favorites`, `story_views`
 
+## Render.com Deployment
+
+A `render.yaml` file is included at the root of the project. To deploy:
+
+1. Push the repo to GitHub/GitLab
+2. Create a new account or log in at [render.com](https://render.com)
+3. Click **New > Blueprint** and connect your repository
+4. Render will detect `render.yaml` automatically
+5. Set the **MONGO_URL** secret in the Render dashboard (Environment > Secret Files or Environment Variables)
+6. Deploy — `DB_NAME` defaults to `prawwreads` and `JWT_SECRET` is auto-generated
+
+The build command installs Python dependencies. The pre-built React frontend (in `frontend/build/`) is served directly by FastAPI, so no Node.js build step is needed on Render.
+
+> **Important**: Render's free tier spins down after inactivity. Upgrading to a paid plan keeps the server always-on.
+
 ## Recent Features Added
 
 - **Story view tracking**: Every visit to a story is tracked in `story_views` (unique per user/IP). View counts shown on story cards (Home) and story detail page.
