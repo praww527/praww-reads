@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { Heart, MessageSquare, BookOpen, ArrowLeft, Loader2, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck, Eye, Lock, Gift } from "lucide-react";
+import { Heart, MessageSquare, BookOpen, ArrowLeft, Loader2, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck, Eye, Lock, Gift, Pencil, Trash2, Check, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 const DONATION_AMOUNTS = [5, 10, 20, 50];
@@ -28,6 +28,17 @@ export default function StoryDetail() {
   const [donating, setDonating] = useState(false);
   const [donateSuccess, setDonateSuccess] = useState("");
   const [purchaseSuccess, setPurchaseSuccess] = useState("");
+
+  const [deletingStory, setDeletingStory] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editingCommentText, setEditingCommentText] = useState("");
+  const [savingComment, setSavingComment] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState(null);
+  const [commentLikes, setCommentLikes] = useState({});
+  const [likingCommentId, setLikingCommentId] = useState(null);
+
   const contentRef = useRef(null);
 
   useEffect(() => {
@@ -48,6 +59,14 @@ export default function StoryDetail() {
       setChapters(chs);
       if (chs.length > 0) setActiveChapter(chs[0]);
       setComments(cmts);
+      const initialLikes = {};
+      cmts.forEach(c => {
+        initialLikes[c.id] = { count: c.like_count || 0, liked: c.user_liked || false };
+        (c.replies || []).forEach(r => {
+          initialLikes[r.id] = { count: r.like_count || 0, liked: r.user_liked || false };
+        });
+      });
+      setCommentLikes(initialLikes);
       if (isAuthenticated) {
         const prog = await apiFetch(`/stories/${id}/progress`).catch(() => ({ progress: 0 }));
         setProgress(prog.progress || 0);
@@ -101,6 +120,7 @@ export default function StoryDetail() {
     try {
       const newComment = await apiFetch(`/stories/${id}/comments`, { method: "POST", body: JSON.stringify({ content: comment }) });
       setComments(prev => [...prev, newComment]);
+      setCommentLikes(prev => ({ ...prev, [newComment.id]: { count: 0, liked: false } }));
       setComment("");
     } finally {
       setSubmittingComment(false);
@@ -135,6 +155,76 @@ export default function StoryDetail() {
     }
   }
 
+  async function handleDeleteStory() {
+    if (!confirmDelete) { setConfirmDelete(true); return; }
+    setDeletingStory(true);
+    try {
+      await apiFetch(`/stories/${id}`, { method: "DELETE" });
+      navigate("/");
+    } catch (err) {
+      alert(err.message || "Failed to delete story");
+      setDeletingStory(false);
+      setConfirmDelete(false);
+    }
+  }
+
+  function startEditComment(c) {
+    setEditingCommentId(c.id);
+    setEditingCommentText(c.content);
+  }
+
+  async function saveEditComment(commentId) {
+    if (!editingCommentText.trim()) return;
+    setSavingComment(true);
+    try {
+      await apiFetch(`/stories/comments/${commentId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ content: editingCommentText.trim() }),
+      });
+      setComments(prev => prev.map(c => {
+        if (c.id === commentId) return { ...c, content: editingCommentText.trim() };
+        return {
+          ...c,
+          replies: (c.replies || []).map(r => r.id === commentId ? { ...r, content: editingCommentText.trim() } : r),
+        };
+      }));
+      setEditingCommentId(null);
+      setEditingCommentText("");
+    } catch (err) {
+      alert(err.message || "Failed to edit comment");
+    } finally {
+      setSavingComment(false);
+    }
+  }
+
+  async function handleDeleteComment(commentId) {
+    setDeletingCommentId(commentId);
+    try {
+      await apiFetch(`/stories/comments/${commentId}`, { method: "DELETE" });
+      setComments(prev =>
+        prev
+          .filter(c => c.id !== commentId)
+          .map(c => ({ ...c, replies: (c.replies || []).filter(r => r.id !== commentId) }))
+      );
+    } catch (err) {
+      alert(err.message || "Failed to delete comment");
+    } finally {
+      setDeletingCommentId(null);
+    }
+  }
+
+  async function handleCommentLike(commentId) {
+    if (!isAuthenticated) { navigate("/login"); return; }
+    if (likingCommentId === commentId) return;
+    setLikingCommentId(commentId);
+    try {
+      const res = await apiFetch(`/stories/comments/${commentId}/like`, { method: "POST" });
+      setCommentLikes(prev => ({ ...prev, [commentId]: { count: res.count, liked: res.liked } }));
+    } finally {
+      setLikingCommentId(null);
+    }
+  }
+
   if (loading) return <div className="flex justify-center py-32"><Loader2 className="h-12 w-12 animate-spin text-primary/50" /></div>;
   if (!story) return (
     <div className="p-8 text-center">
@@ -149,7 +239,6 @@ export default function StoryDetail() {
   const chapterIdx = chapters.findIndex(c => c.id === activeChapter?.id);
   const rawContent = activeChapter ? activeChapter.content : story.content;
 
-  // Determine what content to show
   let displayContent = rawContent;
   let showGuestWall = false;
   let showPaidWall = false;
@@ -203,6 +292,42 @@ export default function StoryDetail() {
         </div>
         {story.description && <p className="text-muted-foreground italic text-base mb-4">{story.description}</p>}
 
+        {/* Author actions */}
+        {isAuthor && (
+          <div className="flex items-center gap-2 mb-4 p-3 rounded-xl bg-muted/30 border border-border">
+            <span className="text-xs text-muted-foreground font-medium mr-1">Your story:</span>
+            <Link
+              to={`/stories/${id}/edit`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors"
+            >
+              <Pencil className="h-3.5 w-3.5" /> Edit
+            </Link>
+            {confirmDelete ? (
+              <div className="flex items-center gap-2 ml-auto">
+                <span className="text-xs text-destructive font-medium">Delete this story?</span>
+                <button
+                  onClick={handleDeleteStory}
+                  disabled={deletingStory}
+                  className="inline-flex items-center gap-1 rounded-lg bg-destructive text-destructive-foreground px-3 py-1.5 text-sm font-medium hover:bg-destructive/90 disabled:opacity-60"
+                >
+                  {deletingStory ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  Yes, delete
+                </button>
+                <button onClick={() => setConfirmDelete(false)} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted">
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleDeleteStory}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 text-destructive bg-background px-3 py-1.5 text-sm font-medium hover:bg-destructive/10 transition-colors ml-auto"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex items-center gap-3 flex-wrap">
           <button
@@ -239,7 +364,7 @@ export default function StoryDetail() {
         )}
       </div>
 
-      {/* Chapters Nav — only show if user can read */}
+      {/* Chapters Nav */}
       {canReadFull && chapters.length > 1 && (
         <div className="flex gap-2 flex-wrap mb-6">
           {chapters.map(ch => (
@@ -304,24 +429,18 @@ export default function StoryDetail() {
       {/* Chapter Navigation */}
       {canReadFull && chapters.length > 1 && (
         <div className="flex justify-between mb-10">
-          <button
-            onClick={() => setActiveChapter(chapters[chapterIdx - 1])}
-            disabled={chapterIdx <= 0}
-            className="flex items-center gap-1.5 text-sm rounded-lg border border-border px-4 py-2 hover:border-primary/40 disabled:opacity-40"
-          >
+          <button onClick={() => setActiveChapter(chapters[chapterIdx - 1])} disabled={chapterIdx <= 0}
+            className="flex items-center gap-1.5 text-sm rounded-lg border border-border px-4 py-2 hover:border-primary/40 disabled:opacity-40">
             <ChevronLeft className="h-4 w-4" /> Previous
           </button>
-          <button
-            onClick={() => setActiveChapter(chapters[chapterIdx + 1])}
-            disabled={chapterIdx >= chapters.length - 1}
-            className="flex items-center gap-1.5 text-sm rounded-lg border border-border px-4 py-2 hover:border-primary/40 disabled:opacity-40"
-          >
+          <button onClick={() => setActiveChapter(chapters[chapterIdx + 1])} disabled={chapterIdx >= chapters.length - 1}
+            className="flex items-center gap-1.5 text-sm rounded-lg border border-border px-4 py-2 hover:border-primary/40 disabled:opacity-40">
             Next <ChevronRight className="h-4 w-4" />
           </button>
         </div>
       )}
 
-      {/* Donation Section — shown at end of free stories for logged-in non-authors */}
+      {/* Donation Section — free stories */}
       {isAuthenticated && !isPaidStory && !isAuthor && (
         <div className="mb-10 rounded-2xl border border-border bg-card p-6">
           <div className="flex items-center gap-2 mb-3">
@@ -330,18 +449,12 @@ export default function StoryDetail() {
           </div>
           <p className="text-sm text-muted-foreground mb-4">If you enjoyed this story, consider donating to support <strong>{story.author_name}</strong>. The writer receives 70% of every donation.</p>
           {donateSuccess ? (
-            <div className="rounded-xl bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-5 py-3 text-sm">
-              {donateSuccess}
-            </div>
+            <div className="rounded-xl bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-5 py-3 text-sm">{donateSuccess}</div>
           ) : (
             <div className="flex flex-wrap gap-3">
               {DONATION_AMOUNTS.map(amount => (
-                <button
-                  key={amount}
-                  onClick={() => handleDonate(amount)}
-                  disabled={donating}
-                  className="rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary font-semibold px-5 py-2.5 text-sm transition-colors disabled:opacity-60"
-                >
+                <button key={amount} onClick={() => handleDonate(amount)} disabled={donating}
+                  className="rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary font-semibold px-5 py-2.5 text-sm transition-colors disabled:opacity-60">
                   {donating ? <Loader2 className="h-4 w-4 animate-spin inline" /> : `R${amount}`}
                 </button>
               ))}
@@ -350,7 +463,7 @@ export default function StoryDetail() {
         </div>
       )}
 
-      {/* Donation Section for paid story that user purchased */}
+      {/* Donation Section — paid + purchased */}
       {isAuthenticated && isPaidStory && purchased && !isAuthor && (
         <div className="mb-10 rounded-2xl border border-border bg-card p-6">
           <div className="flex items-center gap-2 mb-3">
@@ -359,18 +472,12 @@ export default function StoryDetail() {
           </div>
           <p className="text-sm text-muted-foreground mb-4">Show some extra love to <strong>{story.author_name}</strong> with a donation.</p>
           {donateSuccess ? (
-            <div className="rounded-xl bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-5 py-3 text-sm">
-              {donateSuccess}
-            </div>
+            <div className="rounded-xl bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-5 py-3 text-sm">{donateSuccess}</div>
           ) : (
             <div className="flex flex-wrap gap-3">
               {DONATION_AMOUNTS.map(amount => (
-                <button
-                  key={amount}
-                  onClick={() => handleDonate(amount)}
-                  disabled={donating}
-                  className="rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary font-semibold px-5 py-2.5 text-sm transition-colors disabled:opacity-60"
-                >
+                <button key={amount} onClick={() => handleDonate(amount)} disabled={donating}
+                  className="rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary font-semibold px-5 py-2.5 text-sm transition-colors disabled:opacity-60">
                   {donating ? <Loader2 className="h-4 w-4 animate-spin inline" /> : `R${amount}`}
                 </button>
               ))}
@@ -406,43 +513,123 @@ export default function StoryDetail() {
           )}
           <div className="space-y-4">
             {comments.map(c => (
-              <div key={c.id} className="flex gap-3">
-                {c.author_profile_image_url ? (
-                  <img src={c.author_profile_image_url} alt={c.author_name} className="w-8 h-8 rounded-full object-cover border border-border shrink-0" />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0 border border-border">
-                    {(c.author_name || "U")[0].toUpperCase()}
-                  </div>
-                )}
-                <div>
-                  <div className="text-sm font-medium">{c.author_name}</div>
-                  <p className="text-sm text-muted-foreground mt-0.5">{c.content}</p>
-                  {c.replies && c.replies.length > 0 && (
-                    <div className="mt-2 space-y-2 pl-4 border-l-2 border-border">
-                      {c.replies.map(r => (
-                        <div key={r.id} className="flex gap-2">
-                          {r.author_profile_image_url ? (
-                            <img src={r.author_profile_image_url} alt={r.author_name} className="w-6 h-6 rounded-full object-cover border border-border shrink-0" />
-                          ) : (
-                            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0 border border-border">
-                              {(r.author_name || "U")[0].toUpperCase()}
-                            </div>
-                          )}
-                          <div>
-                            <span className="text-sm font-medium">{r.author_name}</span>
-                            <p className="text-sm text-muted-foreground">{r.content}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <CommentItem
+                key={c.id}
+                comment={c}
+                user={user}
+                isAuthenticated={isAuthenticated}
+                commentLikes={commentLikes}
+                editingCommentId={editingCommentId}
+                editingCommentText={editingCommentText}
+                savingComment={savingComment}
+                deletingCommentId={deletingCommentId}
+                likingCommentId={likingCommentId}
+                onEdit={startEditComment}
+                onEditChange={setEditingCommentText}
+                onEditSave={saveEditComment}
+                onEditCancel={() => { setEditingCommentId(null); setEditingCommentText(""); }}
+                onDelete={handleDeleteComment}
+                onLike={handleCommentLike}
+              />
             ))}
             {comments.length === 0 && <p className="text-muted-foreground text-sm text-center py-6">No comments yet. Be the first!</p>}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CommentItem({ comment: c, user, isAuthenticated, commentLikes, editingCommentId, editingCommentText, savingComment, deletingCommentId, likingCommentId, onEdit, onEditChange, onEditSave, onEditCancel, onDelete, onLike, isReply = false }) {
+  const isOwn = isAuthenticated && user?.id === c.author_id;
+  const cl = commentLikes[c.id] || { count: 0, liked: false };
+  const isEditing = editingCommentId === c.id;
+  const isDeleting = deletingCommentId === c.id;
+
+  return (
+    <div className={`flex gap-3 ${isReply ? "" : ""}`}>
+      {c.author_profile_image_url ? (
+        <img src={c.author_profile_image_url} alt={c.author_name} className={`${isReply ? "w-6 h-6" : "w-8 h-8"} rounded-full object-cover border border-border shrink-0`} />
+      ) : (
+        <div className={`${isReply ? "w-6 h-6 text-xs" : "w-8 h-8 text-xs"} rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0 border border-border`}>
+          {(c.author_name || "U")[0].toUpperCase()}
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium">{c.author_name}</div>
+        {isEditing ? (
+          <div className="mt-1 flex gap-2 items-start">
+            <textarea
+              value={editingCommentText}
+              onChange={e => onEditChange(e.target.value)}
+              rows={2}
+              className="flex-1 rounded-lg border border-input bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+              autoFocus
+            />
+            <div className="flex flex-col gap-1 shrink-0">
+              <button onClick={() => onEditSave(c.id)} disabled={savingComment || !editingCommentText.trim()}
+                className="rounded-lg bg-primary text-primary-foreground px-2 py-1 text-xs font-medium disabled:opacity-60 flex items-center gap-1">
+                {savingComment ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Save
+              </button>
+              <button onClick={onEditCancel} className="rounded-lg border border-border px-2 py-1 text-xs hover:bg-muted flex items-center gap-1">
+                <X className="h-3 w-3" /> Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground mt-0.5 break-words">{c.content}</p>
+        )}
+        {/* Comment actions */}
+        {!isEditing && (
+          <div className="flex items-center gap-3 mt-1.5">
+            <button
+              onClick={() => onLike(c.id)}
+              disabled={!isAuthenticated || likingCommentId === c.id}
+              className={`flex items-center gap-1 text-xs transition-colors disabled:opacity-50 ${cl.liked ? "text-primary font-medium" : "text-muted-foreground hover:text-primary"}`}
+            >
+              <Heart className={`h-3 w-3 ${cl.liked ? "fill-primary" : ""}`} />
+              {cl.count > 0 && <span>{cl.count}</span>}
+            </button>
+            {isOwn && (
+              <>
+                <button onClick={() => onEdit(c)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
+                  <Pencil className="h-3 w-3" /> Edit
+                </button>
+                <button onClick={() => onDelete(c.id)} disabled={isDeleting}
+                  className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 transition-colors disabled:opacity-50">
+                  {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />} Delete
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        {/* Replies */}
+        {c.replies && c.replies.length > 0 && (
+          <div className="mt-3 space-y-3 pl-4 border-l-2 border-border">
+            {c.replies.map(r => (
+              <CommentItem
+                key={r.id}
+                comment={r}
+                user={user}
+                isAuthenticated={isAuthenticated}
+                commentLikes={commentLikes}
+                editingCommentId={editingCommentId}
+                editingCommentText={editingCommentText}
+                savingComment={savingComment}
+                deletingCommentId={deletingCommentId}
+                likingCommentId={likingCommentId}
+                onEdit={onEdit}
+                onEditChange={onEditChange}
+                onEditSave={onEditSave}
+                onEditCancel={onEditCancel}
+                onDelete={onDelete}
+                onLike={onLike}
+                isReply={true}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
