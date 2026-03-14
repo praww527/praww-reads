@@ -182,6 +182,10 @@ class UpdateProfileInput(BaseModel):
     last_name: Optional[str] = None
     profile_image_url: Optional[str] = None
 
+class ChangePasswordInput(BaseModel):
+    current_password: str
+    new_password: str
+
 class CreateStoryInput(BaseModel):
     title: str
     content: str
@@ -378,6 +382,16 @@ async def logout(response: Response):
     response.delete_cookie("praww_token")
     return {"message": "Logged out"}
 
+@api_router.post("/auth/change-password")
+async def change_password(data: ChangePasswordInput, current_user: dict = Depends(get_current_user)):
+    if not verify_password(data.current_password, current_user.get("password_hash", "")):
+        raise HTTPException(400, "Current password is incorrect")
+    if len(data.new_password) < 6:
+        raise HTTPException(400, "New password must be at least 6 characters")
+    new_hash = hash_password(data.new_password)
+    await db.users.update_one({"id": current_user["id"]}, {"$set": {"password_hash": new_hash, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    return {"message": "Password changed successfully"}
+
 @api_router.get("/auth/user")
 async def get_user(current_user: dict = Depends(get_current_user)):
     return safe_user(current_user)
@@ -480,6 +494,7 @@ async def list_stories(current_user: Optional[dict] = Depends(get_optional_user)
         s["author_name"] = _get_display_name(author) if author else "Unknown"
         like_count = await db.story_likes.count_documents({"story_id": s["id"]})
         s["like_count"] = like_count
+        s["view_count"] = await db.story_views.count_documents({"story_id": s["id"]})
         s["user_liked"] = False
         if current_user:
             s["user_liked"] = await db.story_likes.count_documents({"story_id": s["id"], "user_id": current_user["id"]}) > 0
@@ -507,24 +522,35 @@ async def get_trending_stories():
     for s in stories:
         author = await db.users.find_one({"id": s.get("author_id")}, {"_id": 0, "first_name": 1, "last_name": 1, "username": 1})
         s["author_name"] = _get_display_name(author) if author else "Unknown"
+        s["view_count"] = await db.story_views.count_documents({"story_id": s["id"]})
     return stories
 
 @api_router.get("/stories/{story_id}")
-async def get_story(story_id: str, current_user: Optional[dict] = Depends(get_optional_user)):
+async def get_story(story_id: str, request: Request, current_user: Optional[dict] = Depends(get_optional_user)):
     story = await db.stories.find_one({"id": story_id}, {"_id": 0})
     if not story:
         raise HTTPException(404, "Story not found")
-    author = await db.users.find_one({"id": story["author_id"]}, {"_id": 0, "first_name": 1, "last_name": 1, "username": 1})
+    author = await db.users.find_one({"id": story["author_id"]}, {"_id": 0, "first_name": 1, "last_name": 1, "username": 1, "profile_image_url": 1})
     story["author_name"] = _get_display_name(author) if author else "Unknown"
+    story["author_profile_image_url"] = (author or {}).get("profile_image_url", "")
     like_count = await db.story_likes.count_documents({"story_id": story_id})
     story["like_count"] = like_count
     story["user_liked"] = False
     if current_user:
         story["user_liked"] = await db.story_likes.count_documents({"story_id": story_id, "user_id": current_user["id"]}) > 0
-    # Story favorite status
     story["user_favorited"] = False
     if current_user:
         story["user_favorited"] = await db.story_favorites.count_documents({"story_id": story_id, "user_id": current_user["id"]}) > 0
+    # Track view
+    viewer_key = current_user["id"] if current_user else request.client.host
+    now = datetime.now(timezone.utc).isoformat()
+    await db.story_views.update_one(
+        {"story_id": story_id, "viewer_key": viewer_key},
+        {"$set": {"story_id": story_id, "viewer_key": viewer_key, "viewed_at": now}},
+        upsert=True
+    )
+    view_count = await db.story_views.count_documents({"story_id": story_id})
+    story["view_count"] = view_count
     return story
 
 @api_router.post("/stories")
@@ -619,12 +645,12 @@ async def get_story_comments(story_id: str, current_user: Optional[dict] = Depen
     raw = await db.story_comments.find({"story_id": story_id}, {"_id": 0}).sort("created_at", 1).to_list(500)
     enriched = []
     for c in raw:
-        author = await db.users.find_one({"id": c["user_id"]}, {"_id": 0, "username": 1, "first_name": 1, "last_name": 1})
+        author = await db.users.find_one({"id": c["user_id"]}, {"_id": 0, "username": 1, "first_name": 1, "last_name": 1, "profile_image_url": 1})
         like_count = await db.comment_likes.count_documents({"comment_id": c["id"]})
         user_liked = False
         if current_user:
             user_liked = await db.comment_likes.count_documents({"comment_id": c["id"], "user_id": current_user["id"]}) > 0
-        enriched.append({**c, "author_name": _get_display_name(author) if author else "Unknown", "like_count": like_count, "user_liked": user_liked, "replies": []})
+        enriched.append({**c, "author_name": _get_display_name(author) if author else "Unknown", "author_profile_image_url": (author or {}).get("profile_image_url", ""), "like_count": like_count, "user_liked": user_liked, "replies": []})
     # Nest replies
     top_level = [c for c in enriched if not c.get("parent_id")]
     replies = [c for c in enriched if c.get("parent_id")]

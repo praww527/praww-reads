@@ -11,6 +11,7 @@ import Profile from "./pages/Profile";
 import Favorites from "./pages/Favorites";
 import Inbox from "./pages/Inbox";
 import SearchPage from "./pages/Search";
+import Settings from "./pages/Settings";
 import "./App.css";
 
 function AppShell() {
@@ -30,6 +31,7 @@ function AppShell() {
           <Route path="/favorites" element={<Favorites />} />
           <Route path="/inbox" element={<Inbox />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

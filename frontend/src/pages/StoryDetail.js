@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { Heart, MessageSquare, BookOpen, ArrowLeft, Loader2, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck } from "lucide-react";
+import { Heart, MessageSquare, BookOpen, ArrowLeft, Loader2, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck, Eye } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default function StoryDetail() {
@@ -125,10 +125,21 @@ export default function StoryDetail() {
           </div>
         )}
         <h1 className="font-serif text-4xl font-bold mb-2">{story.title}</h1>
-        <div className="flex items-center gap-3 text-sm text-muted-foreground mb-4">
-          <span>by {story.author_name || "Unknown"}</span>
+        <div className="flex items-center gap-3 text-sm text-muted-foreground mb-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            {story.author_profile_image_url ? (
+              <img src={story.author_profile_image_url} alt={story.author_name} className="w-6 h-6 rounded-full object-cover border border-border" />
+            ) : (
+              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs border border-border">
+                {(story.author_name || "U")[0].toUpperCase()}
+              </div>
+            )}
+            <span>by {story.author_name || "Unknown"}</span>
+          </div>
           <span>•</span>
           <span>{story.created_at ? formatDistanceToNow(new Date(story.created_at)) + " ago" : ""}</span>
+          <span>•</span>
+          <span className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{story.view_count || 0} views</span>
         </div>
         {story.description && <p className="text-muted-foreground italic text-base mb-4">{story.description}</p>}
 
@@ -238,9 +249,13 @@ export default function StoryDetail() {
         <div className="space-y-4">
           {comments.map(c => (
             <div key={c.id} className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
-                {(c.author_name || "U")[0].toUpperCase()}
-              </div>
+              {c.author_profile_image_url ? (
+                <img src={c.author_profile_image_url} alt={c.author_name} className="w-8 h-8 rounded-full object-cover border border-border shrink-0" />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0 border border-border">
+                  {(c.author_name || "U")[0].toUpperCase()}
+                </div>
+              )}
               <div>
                 <div className="text-sm font-medium">{c.author_name}</div>
                 <p className="text-sm text-muted-foreground mt-0.5">{c.content}</p>
@@ -248,9 +263,13 @@ export default function StoryDetail() {
                   <div className="mt-2 space-y-2 pl-4 border-l-2 border-border">
                     {c.replies.map(r => (
                       <div key={r.id} className="flex gap-2">
-                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
-                          {(r.author_name || "U")[0].toUpperCase()}
-                        </div>
+                        {r.author_profile_image_url ? (
+                          <img src={r.author_profile_image_url} alt={r.author_name} className="w-6 h-6 rounded-full object-cover border border-border shrink-0" />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0 border border-border">
+                            {(r.author_name || "U")[0].toUpperCase()}
+                          </div>
+                        )}
                         <div>
                           <span className="text-sm font-medium">{r.author_name}</span>
                           <p className="text-sm text-muted-foreground">{r.content}</p>

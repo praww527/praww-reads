@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/AuthContext";
-import { BookOpen, MessageCircle, Menu, X, LogOut, User, Search } from "lucide-react";
+import { BookOpen, MessageCircle, Menu, X, LogOut, User, Search, Settings } from "lucide-react";
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -121,6 +121,9 @@ export default function Navbar() {
                       <Link to="/profile/me" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors">
                         <User className="h-4 w-4 text-muted-foreground" /> My Profile
                       </Link>
+                      <Link to="/settings" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors">
+                        <Settings className="h-4 w-4 text-muted-foreground" /> Settings
+                      </Link>
                       <div className="border-t border-border" />
                       <button onClick={handleLogout} data-testid="logout-btn"
                         className="w-full flex items-center gap-3 px-4 py-3 text-sm text-destructive hover:bg-destructive/5 transition-colors">
@@ -170,6 +173,7 @@ export default function Navbar() {
             <div className="border-t border-border pt-3 space-y-1">
               <Link to="/inbox" className="block px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">Inbox</Link>
               <Link to="/profile/me" className="block px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">Profile</Link>
+              <Link to="/settings" className="block px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">Settings</Link>
               <button onClick={handleLogout} className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/5">Log Out</button>
             </div>
           ) : (

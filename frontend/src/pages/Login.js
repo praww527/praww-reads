@@ -98,7 +98,14 @@ export default function LoginPage() {
       setCode(["", "", "", "", "", ""]);
       setTimeout(() => codeRefs[0].current?.focus(), 100);
     } catch (err) {
-      setError(err.message || "Could not resend code");
+      const msg = err.message || "Could not resend code";
+      if (msg.toLowerCase().includes("already exists")) {
+        setVerifyStep(false);
+        setShowLoginPrompt(true);
+        setRegEmail(verifyEmail_);
+      } else {
+        setError(msg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -142,7 +149,14 @@ export default function LoginPage() {
       await verifyEmail(verifyEmail_, fullCode);
       navigate("/");
     } catch (err) {
-      setError(err.message || "Verification failed");
+      const msg = err.message || "Verification failed";
+      if (msg.toLowerCase().includes("already exists")) {
+        setVerifyStep(false);
+        setShowLoginPrompt(true);
+        setRegEmail(verifyEmail_);
+      } else {
+        setError(msg);
+      }
     } finally {
       setSubmitting(false);
     }

@@ -49,4 +49,20 @@ memory/        - PRD.md and CHANGELOG.md
 
 ## Database (MongoDB Atlas)
 
-Collections: `users`, `stories`, `chapters`, `story_likes`, `story_favorites`, `story_progress`, `story_comments`, `comment_likes`, `books`, `messages`, `follows`, `book_favorites`
+Collections: `users`, `stories`, `chapters`, `story_likes`, `story_favorites`, `story_progress`, `story_comments`, `comment_likes`, `books`, `messages`, `follows`, `book_favorites`, `story_views`
+
+## Recent Features Added
+
+- **Story view tracking**: Every visit to a story is tracked in `story_views` (unique per user/IP). View counts shown on story cards (Home) and story detail page.
+- **Author avatars in stories**: Story detail shows author profile image next to their name. Comment avatars use real profile images when available.
+- **Settings page** (`/settings`): Accessible from the user dropdown. Includes change password functionality and account info.
+- **Change password endpoint**: `POST /api/auth/change-password` (requires current_password + new_password).
+- **Duplicate email registration fix**: Handles "already exists" errors during verification/resend steps — shows login prompt instead of raw error.
+
+## Build Instructions
+
+After changing frontend code:
+```bash
+cd frontend && CI=false node_modules/.bin/craco build
+```
+Then restart the workflow.

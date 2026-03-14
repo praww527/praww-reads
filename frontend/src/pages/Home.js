@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../lib/api";
-import { BookOpen, Heart, TrendingUp, Loader2 } from "lucide-react";
+import { BookOpen, Heart, TrendingUp, Loader2, Eye } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default function Home() {
@@ -103,6 +103,7 @@ function StoryCard({ story }) {
           {story.description && <p className="text-sm text-muted-foreground line-clamp-2 flex-1">{story.description}</p>}
           <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{story.like_count || 0}</span>
+            <span className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{story.view_count || 0}</span>
             <span>{story.created_at ? formatDistanceToNow(new Date(story.created_at)) + " ago" : ""}</span>
           </div>
         </div>
