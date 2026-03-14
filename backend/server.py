@@ -9,7 +9,7 @@ from typing import List, Optional, Any
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
-import os, uuid, bcrypt, jwt, logging, random, string, smtplib, asyncio
+import os, uuid, bcrypt, jwt, logging, random, string, smtplib, asyncio, re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from concurrent.futures import ThreadPoolExecutor
@@ -44,6 +44,15 @@ SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASS = os.environ.get("SMTP_PASS", "")
 
 USERNAME_CHANGE_DAYS = 30
+
+RESERVED_USERNAMES = {"prawwreads", "prawwread", "praww", "prawwreadsofficial", "praww_reads", "admin", "administrator", "support", "moderator"}
+
+def _normalize_username(name: str) -> str:
+    return re.sub(r'[^a-z0-9]', '', name.lower())
+
+def is_reserved_username(name: str) -> bool:
+    normalized = _normalize_username(name)
+    return normalized in {_normalize_username(r) for r in RESERVED_USERNAMES}
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
@@ -255,9 +264,11 @@ async def register(data: RegisterInput, response: Response):
         user_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
         base_username = email.split("@")[0].replace(".", "_").replace("+", "_")
+        if is_reserved_username(base_username):
+            base_username = f"user_{base_username}"
         username_candidate = base_username
         suffix = 1
-        while await db.users.find_one({"username": username_candidate}):
+        while await db.users.find_one({"username": username_candidate}) or is_reserved_username(username_candidate):
             username_candidate = f"{base_username}_{suffix}"
             suffix += 1
         user = {
@@ -271,6 +282,8 @@ async def register(data: RegisterInput, response: Response):
             "bio": "",
             "profile_image_url": "",
             "email_verified": True,
+            "is_verified": False,
+            "is_premium": False,
             "created_at": now,
             "updated_at": now,
         }
@@ -334,9 +347,11 @@ async def verify_email(data: VerifyEmailInput, response: Response):
     user_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     base_username = email.split("@")[0].replace(".", "_").replace("+", "_")
+    if is_reserved_username(base_username):
+        base_username = f"user_{base_username}"
     username_candidate = base_username
     suffix = 1
-    while await db.users.find_one({"username": username_candidate}):
+    while await db.users.find_one({"username": username_candidate}) or is_reserved_username(username_candidate):
         username_candidate = f"{base_username}_{suffix}"
         suffix += 1
     user = {
@@ -350,6 +365,8 @@ async def verify_email(data: VerifyEmailInput, response: Response):
         "bio": "",
         "profile_image_url": "",
         "email_verified": True,
+        "is_verified": False,
+        "is_premium": False,
         "created_at": now,
         "updated_at": now,
     }
@@ -428,6 +445,8 @@ async def update_profile(data: UpdateProfileInput, current_user: dict = Depends(
             raise HTTPException(400, "Username cannot be empty")
         if len(new_username) < 3:
             raise HTTPException(400, "Username must be at least 3 characters")
+        if is_reserved_username(new_username):
+            raise HTTPException(400, "That username is reserved and cannot be used.")
         last_changed_str = current_user.get("username_changed_at")
         if last_changed_str:
             last_changed = datetime.fromisoformat(last_changed_str)
@@ -490,8 +509,10 @@ async def follow_status(user_id: str, current_user: dict = Depends(get_current_u
 async def list_stories(current_user: Optional[dict] = Depends(get_optional_user)):
     stories = await db.stories.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
     for s in stories:
-        author = await db.users.find_one({"id": s["author_id"]}, {"_id": 0, "first_name": 1, "last_name": 1, "username": 1})
+        author = await db.users.find_one({"id": s["author_id"]}, {"_id": 0, "first_name": 1, "last_name": 1, "username": 1, "is_verified": 1, "is_premium": 1})
         s["author_name"] = _get_display_name(author) if author else "Unknown"
+        s["author_is_verified"] = bool((author or {}).get("is_verified"))
+        s["author_is_premium"] = bool((author or {}).get("is_premium"))
         like_count = await db.story_likes.count_documents({"story_id": s["id"]})
         s["like_count"] = like_count
         s["view_count"] = await db.story_views.count_documents({"story_id": s["id"]})
@@ -520,8 +541,10 @@ async def get_trending_stories():
     ]
     stories = await db.stories.aggregate(pipeline).to_list(20)
     for s in stories:
-        author = await db.users.find_one({"id": s.get("author_id")}, {"_id": 0, "first_name": 1, "last_name": 1, "username": 1})
+        author = await db.users.find_one({"id": s.get("author_id")}, {"_id": 0, "first_name": 1, "last_name": 1, "username": 1, "is_verified": 1, "is_premium": 1})
         s["author_name"] = _get_display_name(author) if author else "Unknown"
+        s["author_is_verified"] = bool((author or {}).get("is_verified"))
+        s["author_is_premium"] = bool((author or {}).get("is_premium"))
         s["view_count"] = await db.story_views.count_documents({"story_id": s["id"]})
     return stories
 
