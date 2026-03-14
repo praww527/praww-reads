@@ -45,7 +45,11 @@ SMTP_PASS = os.environ.get("SMTP_PASS", "")
 
 USERNAME_CHANGE_DAYS = 30
 
-RESERVED_USERNAMES = {"prawwreads", "prawwread", "praww", "prawwreadsofficial", "praww_reads", "admin", "administrator", "support", "moderator"}
+RESERVED_USERNAMES = {"prawwreads", "prawwread", "praww", "prawwreadsofficial", "praww_reads", "admin", "administrator", "support", "moderator", "prawwreads_official", "prawwreadsapp", "prawwreadscom"}
+
+PREMIUM_MONTHLY_ZAR = 59
+PREMIUM_SEMI_ZAR = 29
+PREMIUM_SEMI_MONTHS = 6
 
 def _normalize_username(name: str) -> str:
     return re.sub(r'[^a-z0-9]', '', name.lower())
@@ -245,6 +249,19 @@ class SendMessageInput(BaseModel):
     receiver_id: str
     content: str
 
+class RequestEmailChangeInput(BaseModel):
+    new_email: str
+    current_password: str
+
+class VerifyEmailChangeInput(BaseModel):
+    code: str
+
+class UpdateBackupContactInput(BaseModel):
+    backup_contact: Optional[str] = None
+
+class RequestPremiumInput(BaseModel):
+    plan: str  # "monthly" or "semi"
+
 # ── Auth Routes ─────────────────────────────────────────────────────────────
 @api_router.post("/auth/register")
 async def register(data: RegisterInput, response: Response):
@@ -409,6 +426,113 @@ async def change_password(data: ChangePasswordInput, current_user: dict = Depend
     await db.users.update_one({"id": current_user["id"]}, {"$set": {"password_hash": new_hash, "updated_at": datetime.now(timezone.utc).isoformat()}})
     return {"message": "Password changed successfully"}
 
+@api_router.post("/auth/request-email-change")
+async def request_email_change(data: RequestEmailChangeInput, current_user: dict = Depends(get_current_user)):
+    """Step 1: Verify current password, then send a code to the NEW email."""
+    if not verify_password(data.current_password, current_user.get("password_hash", "")):
+        raise HTTPException(400, "Current password is incorrect")
+    new_email = data.new_email.strip().lower()
+    if not new_email or "@" not in new_email:
+        raise HTTPException(400, "Valid email address required")
+    if new_email == current_user["email"]:
+        raise HTTPException(400, "New email must be different from your current email")
+    existing = await db.users.find_one({"email": new_email, "id": {"$ne": current_user["id"]}})
+    if existing:
+        raise HTTPException(409, "An account with this email already exists")
+    code = generate_code()
+    expires = datetime.now(timezone.utc) + timedelta(minutes=15)
+    await db.pending_email_changes.update_one(
+        {"user_id": current_user["id"]},
+        {"$set": {
+            "user_id": current_user["id"],
+            "new_email": new_email,
+            "code": code,
+            "expires_at": expires.isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }},
+        upsert=True,
+    )
+    backup_contact = current_user.get("backup_contact", "")
+    backup_note = f"<p style='color:#6b7280;font-size:13px;'>If you did not request this, your backup contact ({backup_contact}) has also been noted.</p>" if backup_contact else ""
+    await send_email(
+        to=new_email,
+        subject="Confirm your new email — PRaww Reads",
+        body_html=f"""
+        <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;">
+          <h2 style="margin-bottom:8px;">Confirm your new email</h2>
+          <p style="color:#6b7280;">Enter this code in the app to confirm your new email address. It expires in 15 minutes.</p>
+          <div style="font-size:36px;font-weight:700;letter-spacing:8px;text-align:center;padding:24px 0;color:#4f46e5;">{code}</div>
+          <p style="color:#9ca3af;font-size:13px;">If you did not request this change, you can safely ignore this email.</p>
+          {backup_note}
+        </div>
+        """,
+        code=code,
+    )
+    return {"message": "Verification code sent to your new email address. Enter it to confirm the change.", "new_email": new_email}
+
+@api_router.post("/auth/verify-email-change")
+async def verify_email_change(data: VerifyEmailChangeInput, current_user: dict = Depends(get_current_user)):
+    """Step 2: Accept the code and apply the new email."""
+    pending = await db.pending_email_changes.find_one({"user_id": current_user["id"]})
+    if not pending:
+        raise HTTPException(404, "No pending email change found. Please request a change first.")
+    expires_at = datetime.fromisoformat(pending["expires_at"])
+    if datetime.now(timezone.utc) > expires_at:
+        await db.pending_email_changes.delete_one({"user_id": current_user["id"]})
+        raise HTTPException(410, "Verification code has expired. Please request a new one.")
+    if pending["code"] != data.code.strip():
+        raise HTTPException(400, "Invalid verification code")
+    new_email = pending["new_email"]
+    conflict = await db.users.find_one({"email": new_email, "id": {"$ne": current_user["id"]}})
+    if conflict:
+        await db.pending_email_changes.delete_one({"user_id": current_user["id"]})
+        raise HTTPException(409, "This email is already in use by another account")
+    await db.users.update_one(
+        {"id": current_user["id"]},
+        {"$set": {"email": new_email, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    await db.pending_email_changes.delete_one({"user_id": current_user["id"]})
+    return {"message": "Email address updated successfully", "email": new_email}
+
+@api_router.post("/auth/update-backup-contact")
+async def update_backup_contact(data: UpdateBackupContactInput, current_user: dict = Depends(get_current_user)):
+    """Save or remove an optional backup contact (e.g. phone number) for account recovery."""
+    contact = (data.backup_contact or "").strip()
+    await db.users.update_one(
+        {"id": current_user["id"]},
+        {"$set": {"backup_contact": contact, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": "Backup contact updated", "backup_contact": contact}
+
+@api_router.post("/auth/request-premium")
+async def request_premium(data: RequestPremiumInput, current_user: dict = Depends(get_current_user)):
+    """Record a premium subscription request. Plan: 'monthly' (R59) or 'semi' (R29 for 6 months)."""
+    if data.plan not in ("monthly", "semi"):
+        raise HTTPException(400, "Plan must be 'monthly' or 'semi'")
+    price = PREMIUM_MONTHLY_ZAR if data.plan == "monthly" else PREMIUM_SEMI_ZAR
+    months = 1 if data.plan == "monthly" else PREMIUM_SEMI_MONTHS
+    now = datetime.now(timezone.utc)
+    await db.premium_requests.update_one(
+        {"user_id": current_user["id"], "status": "pending"},
+        {"$set": {
+            "user_id": current_user["id"],
+            "email": current_user["email"],
+            "username": current_user.get("username", ""),
+            "plan": data.plan,
+            "price_zar": price,
+            "months": months,
+            "status": "pending",
+            "requested_at": now.isoformat(),
+        }},
+        upsert=True,
+    )
+    return {
+        "message": f"Premium request submitted! Plan: {data.plan} — R{price} for {months} month{'s' if months > 1 else ''}. We will contact you at {current_user['email']} with payment details.",
+        "plan": data.plan,
+        "price_zar": price,
+        "months": months,
+    }
+
 @api_router.get("/auth/user")
 async def get_user(current_user: dict = Depends(get_current_user)):
     return safe_user(current_user)
@@ -459,6 +583,16 @@ async def update_profile(data: UpdateProfileInput, current_user: dict = Depends(
         taken = await db.users.find_one({"username": new_username, "id": {"$ne": current_user["id"]}})
         if taken:
             raise HTTPException(409, "That username is already taken. Please choose a different one.")
+        previously_used = await db.used_usernames.find_one({"username": new_username.lower()})
+        if previously_used and previously_used.get("user_id") != current_user["id"]:
+            raise HTTPException(409, "That username is no longer available. Please choose a different one.")
+        old_username = current_user.get("username", "")
+        if old_username and old_username.lower() != new_username.lower():
+            await db.used_usernames.update_one(
+                {"username": old_username.lower()},
+                {"$set": {"username": old_username.lower(), "user_id": current_user["id"], "released_at": now.isoformat()}},
+                upsert=True,
+            )
         updates["username_changed_at"] = now.isoformat()
 
     updates["updated_at"] = now.isoformat()

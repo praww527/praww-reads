@@ -178,7 +178,12 @@ export default function Profile() {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 data-testid="profile-name" className="font-serif text-2xl font-bold">{displayName}</h1>
-                  <BadgeCheck className="h-5 w-5 text-primary" title="Verified account" />
+                  {(profile.is_premium || profile.is_verified) && (
+                    <BadgeCheck
+                      className={`h-5 w-5 ${profile.is_verified ? "text-yellow-500" : "text-primary"}`}
+                      title={profile.is_verified ? "PRaww Reads Official" : "Premium Member"}
+                    />
+                  )}
                 </div>
                 {profile.username && <p className="text-sm text-muted-foreground">@{profile.username}</p>}
                 <p className="text-xs text-muted-foreground mt-0.5 font-mono">{shortId}</p>
