@@ -36,6 +36,11 @@ export function AuthProvider({ children }) {
       method: "POST",
       body: JSON.stringify({ email, password, first_name: firstName, last_name: lastName }),
     });
+    if (data.token) {
+      setToken(data.token);
+      const { token, ...user } = data;
+      setUser(user);
+    }
     return data;
   };
 

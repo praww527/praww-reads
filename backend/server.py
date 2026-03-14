@@ -234,8 +234,8 @@ class SendMessageInput(BaseModel):
 
 # ── Auth Routes ─────────────────────────────────────────────────────────────
 @api_router.post("/auth/register")
-async def register(data: RegisterInput):
-    """Step 1: validate inputs, store pending registration, send verification code."""
+async def register(data: RegisterInput, response: Response):
+    """Step 1: validate inputs. If SMTP configured, send verification code. Otherwise create account directly."""
     email = data.email.strip().lower()
     if not email or "@" not in email:
         raise HTTPException(400, "Valid email required")
@@ -244,6 +244,42 @@ async def register(data: RegisterInput):
     existing = await db.users.find_one({"email": email}, {"_id": 0})
     if existing:
         raise HTTPException(409, "An account with this email already exists. Please log in instead.")
+
+    smtp_configured = bool(SMTP_HOST and SMTP_USER and SMTP_PASS)
+
+    if not smtp_configured:
+        user_id = str(uuid.uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+        base_username = email.split("@")[0].replace(".", "_").replace("+", "_")
+        username_candidate = base_username
+        suffix = 1
+        while await db.users.find_one({"username": username_candidate}):
+            username_candidate = f"{base_username}_{suffix}"
+            suffix += 1
+        user = {
+            "id": user_id,
+            "email": email,
+            "password_hash": hash_password(data.password),
+            "first_name": data.first_name or "",
+            "last_name": data.last_name or "",
+            "username": username_candidate,
+            "username_changed_at": now,
+            "bio": "",
+            "profile_image_url": "",
+            "email_verified": True,
+            "created_at": now,
+            "updated_at": now,
+        }
+        try:
+            await db.users.insert_one(user)
+        except DuplicateKeyError:
+            raise HTTPException(409, "An account with this email already exists. Please log in instead.")
+        token = create_token(user_id)
+        response.set_cookie("praww_token", token, httponly=True, max_age=3600 * ACCESS_TOKEN_EXPIRE_HOURS, samesite="lax")
+        result = safe_user(to_str_id(user))
+        result["token"] = token
+        return result
+
     code = generate_code()
     expires = datetime.now(timezone.utc) + timedelta(minutes=15)
     await db.pending_registrations.update_one(

@@ -66,7 +66,11 @@ export default function LoginPage() {
     if (regPassword !== regConfirm) { setError("Passwords don't match"); return; }
     setSubmitting(true);
     try {
-      await register(regEmail, regPassword, regFirstName, regLastName);
+      const result = await register(regEmail, regPassword, regFirstName, regLastName);
+      if (result?.token) {
+        navigate("/");
+        return;
+      }
       setVerifyEmail_(regEmail);
       setVerifyStep(true);
       setShowLoginPrompt(false);

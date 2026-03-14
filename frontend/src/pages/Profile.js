@@ -56,7 +56,7 @@ export default function Profile() {
   async function fetchProfile() {
     setLoading(true);
     try {
-      const endpoint = isOwnProfile ? "/profile/me" : `/profile/${userId}`;
+      const endpoint = isOwnProfile ? "/api/profile/me" : `/api/profile/${userId}`;
       const p = await apiFetch(endpoint);
       setProfile(p);
     } catch {
@@ -101,7 +101,7 @@ export default function Profile() {
     e.preventDefault();
     setSaving(true);
     try {
-      const updated = await apiFetch("/profile", { method: "PATCH", body: JSON.stringify(editForm) });
+      const updated = await apiFetch("/api/profile", { method: "PATCH", body: JSON.stringify(editForm) });
       setProfile(p => ({ ...p, ...updated }));
       await refreshUser();
       setEditOpen(false);
@@ -115,9 +115,9 @@ export default function Profile() {
   async function handleFollow() {
     if (!isAuthenticated) { navigate("/login"); return; }
     if (profile.is_following) {
-      await apiFetch(`/follow/${profile.id}`, { method: "DELETE" });
+      await apiFetch(`/api/follow/${profile.id}`, { method: "DELETE" });
     } else {
-      await apiFetch(`/follow/${profile.id}`, { method: "POST" });
+      await apiFetch(`/api/follow/${profile.id}`, { method: "POST" });
     }
     fetchProfile();
   }
@@ -157,13 +157,19 @@ export default function Profile() {
       <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 mb-8 shadow-sm">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
           {/* Avatar */}
-          <div className="relative shrink-0">
+          <div className="relative shrink-0 group">
             {profile.profile_image_url ? (
               <img src={profile.profile_image_url} alt={displayName} className="w-20 h-20 rounded-full object-cover border-2 border-border" />
             ) : (
               <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-2xl border-2 border-border">
                 {displayName[0]?.toUpperCase() || "?"}
               </div>
+            )}
+            {isOwnProfile && (
+              <button onClick={openEdit} title="Change photo"
+                className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Camera className="h-6 w-6 text-white" />
+              </button>
             )}
           </div>
 

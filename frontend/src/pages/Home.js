@@ -38,14 +38,15 @@ export default function Home() {
             <Link to="/marketplace" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground font-semibold px-6 py-3 hover:bg-primary/90 transition-colors">
               Browse Marketplace
             </Link>
-            <Link to="/write" className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background font-semibold px-6 py-3 hover:bg-muted transition-colors">
-              Start Writing
-            </Link>
+            <button onClick={() => document.getElementById("stories-section")?.scrollIntoView({ behavior: "smooth" })}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background font-semibold px-6 py-3 hover:bg-muted transition-colors">
+              Start Reading
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto max-w-7xl px-4 py-12">
+      <div id="stories-section" className="container mx-auto max-w-7xl px-4 py-12">
         {/* Trending */}
         {trending.length > 0 && (
           <section className="mb-14">
