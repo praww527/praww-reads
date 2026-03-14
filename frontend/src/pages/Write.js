@@ -315,21 +315,21 @@ export default function Write() {
 
         {/* AI Detection Result Panel */}
         {showAiPanel && (
-          <div className={`rounded-2xl border p-5 space-y-4 ${aiResult.verdict === "likely_ai" ? "border-red-300 bg-red-50 dark:bg-red-950/20 dark:border-red-800" : "border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800"}`}>
+          <div className={`rounded-2xl border p-5 space-y-4 ${aiResult.score >= 75 ? "border-red-300 bg-red-50 dark:bg-red-950/20 dark:border-red-800" : "border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800"}`}>
             <div className="flex items-start gap-4">
               <div className="flex flex-col items-center gap-2 shrink-0">
-                {aiResult.verdict === "likely_ai"
+                {aiResult.score >= 75
                   ? <Bot className="h-8 w-8 text-red-500" />
                   : <AlertTriangle className="h-8 w-8 text-amber-500" />
                 }
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className={`font-bold text-base mb-1 ${aiResult.verdict === "likely_ai" ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
-                  {aiResult.verdict === "likely_ai" ? "This content appears to be AI-generated" : "This content may contain AI-generated text"}
+                <h3 className={`font-bold text-base mb-1 ${aiResult.score >= 75 ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
+                  {aiResult.score >= 75 ? "Publishing rejected — AI-generated content detected" : "This content may contain AI-generated text"}
                 </h3>
-                <p className={`text-sm ${aiResult.verdict === "likely_ai" ? "text-red-600 dark:text-red-300" : "text-amber-700 dark:text-amber-300"}`}>
-                  {aiResult.verdict === "likely_ai"
-                    ? "PRaww Reads is a platform for original human writing. Publishing AI-generated content may mislead readers."
+                <p className={`text-sm ${aiResult.score >= 75 ? "text-red-600 dark:text-red-300" : "text-amber-700 dark:text-amber-300"}`}>
+                  {aiResult.score >= 75
+                    ? "PRaww Reads only allows original human writing. Your content scored " + aiResult.score + "/100 on our AI detector and cannot be published."
                     : "We detected some patterns common in AI writing. You can still publish, but consider reviewing your content."}
                 </p>
               </div>
@@ -342,7 +342,7 @@ export default function Write() {
                 <ul className="space-y-1">
                   {aiResult.indicators.map((ind, i) => (
                     <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${aiResult.verdict === "likely_ai" ? "bg-red-400" : "bg-amber-400"}`} />
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${aiResult.score >= 75 ? "bg-red-400" : "bg-amber-400"}`} />
                       {ind}
                     </li>
                   ))}
@@ -350,21 +350,31 @@ export default function Write() {
               </div>
             )}
 
-            <p className="text-xs text-muted-foreground italic">AI detection is not 100% accurate. If your content is genuinely your own, you can still publish it.</p>
-
-            <div className="flex gap-3 pt-1">
-              <button type="button" onClick={() => { setAiResult(null); setAiConfirmed(false); }}
-                className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold hover:bg-muted transition-colors">
-                Cancel — Edit My Story
-              </button>
-              <button type="button" onClick={() => { setAiConfirmed(true); doPublish(); }}
-                disabled={submitting}
-                className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-60
-                  ${aiResult.verdict === "likely_ai" ? "bg-red-500 hover:bg-red-600" : "bg-amber-500 hover:bg-amber-600"}`}>
-                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                Publish Anyway
-              </button>
-            </div>
+            {aiResult.score >= 75 ? (
+              <>
+                <p className="text-xs text-muted-foreground italic">If you believe this is a mistake, please rewrite your content in your own voice and try again.</p>
+                <button type="button" onClick={() => { setAiResult(null); setAiConfirmed(false); }}
+                  className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-semibold hover:bg-muted transition-colors">
+                  Go Back &amp; Edit My Story
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground italic">AI detection is not 100% accurate. If your content is genuinely your own, you can still publish it.</p>
+                <div className="flex gap-3 pt-1">
+                  <button type="button" onClick={() => { setAiResult(null); setAiConfirmed(false); }}
+                    className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold hover:bg-muted transition-colors">
+                    Cancel — Edit My Story
+                  </button>
+                  <button type="button" onClick={() => { setAiConfirmed(true); doPublish(); }}
+                    disabled={submitting}
+                    className="flex-1 rounded-xl bg-amber-500 hover:bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+                    {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Publish Anyway
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
