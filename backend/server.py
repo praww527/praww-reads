@@ -203,6 +203,9 @@ async def get_current_user(request: Request):
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one({"id": user_id}, {"$set": {"last_seen_at": now}})
+    user["last_seen_at"] = now
     return user
 
 async def get_optional_user(request: Request):
@@ -243,6 +246,10 @@ class UpdateProfileInput(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     profile_image_url: Optional[str] = None
+    hide_online_status: Optional[bool] = None
+
+class SendDMInput(BaseModel):
+    content: str
 
 class ChangePasswordInput(BaseModel):
     current_password: str
@@ -871,7 +878,8 @@ async def get_my_profile(current_user: dict = Depends(get_current_user)):
     stories = await db.stories.find({"author_id": current_user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
     followers = await db.follows.count_documents({"following_id": current_user["id"]})
     following = await db.follows.count_documents({"follower_id": current_user["id"]})
-    return {**safe_user(current_user), "stories": stories, "follower_count": followers, "following_count": following}
+    online_status = _get_online_status(current_user, viewer_id=current_user["id"])
+    return {**safe_user(current_user), "stories": stories, "follower_count": followers, "following_count": following, **online_status}
 
 @api_router.get("/profile/username-status")
 async def username_status(current_user: dict = Depends(get_current_user)):
@@ -1688,6 +1696,26 @@ def _get_display_name(user: Optional[dict]) -> str:
     if fn or ln:
         return f"{fn} {ln}".strip()
     return user.get("email", "Unknown")
+
+ONLINE_THRESHOLD_MINUTES = 5
+
+def _get_online_status(user: dict, viewer_id: Optional[str] = None) -> dict:
+    """Returns online status info, respecting hide_online_status setting."""
+    is_own = viewer_id and viewer_id == user.get("id")
+    if user.get("hide_online_status") and not is_own:
+        return {"is_online": None, "last_seen_at": None}
+    last_seen_str = user.get("last_seen_at")
+    if not last_seen_str:
+        return {"is_online": False, "last_seen_at": None}
+    try:
+        last_seen = datetime.fromisoformat(last_seen_str)
+        if last_seen.tzinfo is None:
+            last_seen = last_seen.replace(tzinfo=timezone.utc)
+        diff = datetime.now(timezone.utc) - last_seen
+        is_online = diff.total_seconds() < ONLINE_THRESHOLD_MINUTES * 60
+        return {"is_online": is_online, "last_seen_at": last_seen_str}
+    except Exception:
+        return {"is_online": False, "last_seen_at": None}
 
 # ── Search ───────────────────────────────────────────────────────────────────
 @api_router.get("/search")
