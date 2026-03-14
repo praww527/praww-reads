@@ -1561,6 +1561,136 @@ async def search(q: str = "", type: str = "all", current_user: Optional[dict] = 
 
     return results
 
+# ── AI Content Detection ──────────────────────────────────────────────────────
+def _analyze_ai_content(text: str) -> dict:
+    import math
+    from collections import Counter
+
+    words = re.findall(r'\b[a-zA-Z]+\b', text.lower())
+    sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
+
+    if len(words) < 60:
+        return {"score": 0, "verdict": "too_short", "indicators": [], "word_count": len(words)}
+
+    scores = []
+    indicators = []
+
+    # 1. Burstiness — humans vary sentence length, AI is uniform
+    if len(sentences) >= 4:
+        lengths = [len(s.split()) for s in sentences]
+        mean = sum(lengths) / len(lengths)
+        variance = sum((l - mean) ** 2 for l in lengths) / len(lengths)
+        cv = math.sqrt(variance) / mean if mean > 0 else 0
+        bust_score = max(0, min(100, int(100 - cv * 180)))
+        scores.append(bust_score)
+        if bust_score >= 60:
+            indicators.append("Very uniform sentence lengths")
+
+    # 2. Common AI telltale phrases
+    ai_phrases = [
+        "it's worth noting", "it is worth noting", "it's important to note",
+        "it is important to note", "in conclusion", "in summary", "to summarize",
+        "furthermore", "moreover", "additionally", "subsequently",
+        "delve into", "delved into", "delves into", "dive into",
+        "navigate the", "navigating the", "at its core", "in the realm of",
+        "the intricacies", "a tapestry of", "underscore", "underscores",
+        "embark on", "embarking on", "shed light on", "sheds light on",
+        "holistic approach", "multifaceted", "leverage", "leveraging",
+        "paramount importance", "it goes without saying", "as mentioned earlier",
+        "as previously mentioned", "in today's world", "in today's society",
+        "plays a crucial role", "plays an important role", "a testament to",
+        "stands as a", "it is essential", "it is crucial", "needless to say",
+        "first and foremost", "last but not least", "on the other hand",
+        "in other words", "with that said", "having said that",
+    ]
+    text_lower = text.lower()
+    found = [p for p in ai_phrases if p in text_lower]
+    phrase_score = min(100, len(found) * 12)
+    scores.append(phrase_score)
+    if found:
+        indicators.append(f"AI-associated phrases detected ({len(found)})")
+
+    # 3. Vocabulary diversity — type-token ratio
+    if len(words) >= 30:
+        ttr = len(set(words)) / len(words)
+        if ttr < 0.35:
+            ttr_score = 70
+            indicators.append("Low vocabulary diversity")
+        elif ttr > 0.75:
+            ttr_score = 15
+        else:
+            ttr_score = int((0.75 - ttr) / 0.4 * 60)
+        scores.append(ttr_score)
+
+    # 4. Average sentence length — AI favours 15–22 words consistently
+    if sentences:
+        avg_len = sum(len(s.split()) for s in sentences) / len(sentences)
+        if 14 <= avg_len <= 23:
+            scores.append(45)
+            indicators.append("Consistently medium sentence length")
+        else:
+            scores.append(10)
+
+    # 5. Passive voice density
+    passive_hits = len(re.findall(r'\b(is|are|was|were|has been|have been|had been|being)\s+\w+ed\b', text_lower))
+    passive_ratio = passive_hits / max(len(sentences), 1)
+    if passive_ratio >= 0.4:
+        scores.append(65)
+        indicators.append("High passive voice usage")
+    else:
+        scores.append(max(0, int(passive_ratio * 100)))
+
+    # 6. Punctuation variety — humans use em-dashes, ellipses, exclamations more
+    special = len(re.findall(r'[—–…!]', text))
+    special_ratio = special / max(len(sentences), 1)
+    if special_ratio < 0.1:
+        scores.append(40)
+        indicators.append("Low punctuation variety")
+    else:
+        scores.append(5)
+
+    # 7. Repeated sentence starters
+    starters = [s.split()[0].lower() for s in sentences if s.split()]
+    starter_counts = Counter(starters)
+    repeated = sum(1 for c in starter_counts.values() if c >= 3)
+    if repeated >= 2:
+        scores.append(55)
+        indicators.append("Repeated sentence-starting words")
+    else:
+        scores.append(10)
+
+    final_score = int(sum(scores) / len(scores)) if scores else 0
+    final_score = max(0, min(100, final_score))
+
+    if final_score >= 70:
+        verdict = "likely_ai"
+    elif final_score >= 40:
+        verdict = "possibly_ai"
+    else:
+        verdict = "likely_human"
+
+    return {
+        "score": final_score,
+        "verdict": verdict,
+        "indicators": indicators,
+        "word_count": len(words),
+    }
+
+
+class CheckAIInput(BaseModel):
+    content: str
+    chapters: Optional[list] = None
+
+@api_router.post("/stories/check-ai")
+async def check_ai_content(data: CheckAIInput, current_user: dict = Depends(get_current_user)):
+    if data.chapters:
+        full_text = "\n\n".join(ch.get("content", "") for ch in data.chapters)
+    else:
+        full_text = data.content or ""
+    result = _analyze_ai_content(full_text)
+    return result
+
+
 # ── Direct Messages (E2E Encrypted) ──────────────────────────────────────────
 class SendDMInput(BaseModel):
     receiver_id: str
