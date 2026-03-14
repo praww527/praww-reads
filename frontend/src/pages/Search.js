@@ -39,8 +39,8 @@ export default function SearchPage() {
     if (!q.trim()) { setResults({ users: [], stories: [], books: [] }); setSearched(false); return; }
     setLoading(true);
     apiFetch(`/api/search?q=${encodeURIComponent(q)}&type=${type}`)
-      .then(data => { setResults(data); setSearched(true); })
-      .catch(() => setResults({ users: [], stories: [], books: [] }))
+      .then(data => { setResults(data || { users: [], stories: [], books: [] }); setSearched(true); })
+      .catch(() => { setResults({ users: [], stories: [], books: [] }); setSearched(true); })
       .finally(() => setLoading(false));
   }
 
