@@ -60,7 +60,7 @@ def is_reserved_username(name: str) -> bool:
     normalized = _normalize_username(name)
     return normalized in {_normalize_username(r) for r in RESERVED_USERNAMES}
 
-OFFICIAL_USERNAME = "prawwreadsofficial"
+OFFICIAL_USERNAME = "PRawwReads"
 
 async def auto_follow_official(new_user_id: str):
     """Auto-follow the PRaww Reads Official account when a new user registers."""
