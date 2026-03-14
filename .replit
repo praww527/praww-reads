@@ -10,6 +10,7 @@ packages = ["cargo", "libiconv", "libxcrypt", "openssl", "pkg-config", "rustc"]
 
 [userenv.shared]
 DB_NAME = "prawwreads"
+SMTP_FROM = "noreply@praww.co.za"
 
 [workflows]
 runButton = "Project"

@@ -42,6 +42,7 @@ SMTP_HOST = os.environ.get("SMTP_HOST", "")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASS = os.environ.get("SMTP_PASS", "")
+SMTP_FROM = os.environ.get("SMTP_FROM", SMTP_USER)  # Display "from" address, defaults to SMTP_USER
 
 USERNAME_CHANGE_DAYS = 30
 
@@ -85,7 +86,7 @@ logger = logging.getLogger(__name__)
 def _send_email_sync(to: str, subject: str, body_html: str):
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = SMTP_USER
+    msg["From"] = f"PRaww Reads <{SMTP_FROM}>"
     msg["To"] = to
     msg.attach(MIMEText(body_html, "html"))
     # Use SSL for port 465, STARTTLS for everything else
