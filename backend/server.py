@@ -13,6 +13,7 @@ import os, uuid, bcrypt, jwt, logging, random, string, smtplib, asyncio
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from concurrent.futures import ThreadPoolExecutor
+from pymongo.errors import DuplicateKeyError
 
 _email_executor = ThreadPoolExecutor(max_workers=2)
 
@@ -230,7 +231,7 @@ async def register(data: RegisterInput):
         raise HTTPException(400, "Password must be at least 6 characters")
     existing = await db.users.find_one({"email": email}, {"_id": 0})
     if existing:
-        raise HTTPException(409, "Email already in use")
+        raise HTTPException(409, "An account with this email already exists. Please log in instead.")
     code = generate_code()
     expires = datetime.now(timezone.utc) + timedelta(minutes=15)
     await db.pending_registrations.update_one(
@@ -277,7 +278,7 @@ async def verify_email(data: VerifyEmailInput, response: Response):
     existing = await db.users.find_one({"email": email})
     if existing:
         await db.pending_registrations.delete_one({"email": email})
-        raise HTTPException(409, "Email already in use.")
+        raise HTTPException(409, "An account with this email already exists. Please log in instead.")
     user_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     base_username = email.split("@")[0].replace(".", "_").replace("+", "_")
@@ -300,7 +301,11 @@ async def verify_email(data: VerifyEmailInput, response: Response):
         "created_at": now,
         "updated_at": now,
     }
-    await db.users.insert_one(user)
+    try:
+        await db.users.insert_one(user)
+    except DuplicateKeyError:
+        await db.pending_registrations.delete_one({"email": email})
+        raise HTTPException(409, "An account with this email already exists. Please log in instead.")
     await db.pending_registrations.delete_one({"email": email})
     token = create_token(user_id)
     response.set_cookie("praww_token", token, httponly=True, max_age=3600 * ACCESS_TOKEN_EXPIRE_HOURS, samesite="lax")
@@ -837,6 +842,20 @@ async def root():
     return {"message": "PRaww Reads API"}
 
 app.include_router(api_router)
+
+# ── Startup: create unique indexes ───────────────────────────────────────────
+@app.on_event("startup")
+async def create_indexes():
+    try:
+        await db.users.create_index("email", unique=True, background=True)
+        await db.users.create_index("username", unique=True, sparse=True, background=True)
+        await db.pending_registrations.create_index("email", unique=True, background=True)
+        await db.pending_registrations.create_index(
+            "expires_at", expireAfterSeconds=0, background=True
+        )
+        logger.info("Database indexes created/verified")
+    except Exception as e:
+        logger.warning("Index creation warning: %s", e)
 
 FRONTEND_BUILD = ROOT_DIR.parent / "frontend" / "build"
 if FRONTEND_BUILD.exists():
