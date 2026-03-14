@@ -1,7 +1,38 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { apiFetch, setToken } from "../lib/api";
+import {
+  getStoredPrivateKeyJwk,
+  getStoredPublicKeyJwk,
+  generateKeyPair,
+  exportPrivateKeyJwk,
+  exportPublicKeyJwk,
+  storeKeyPair,
+} from "../lib/e2e";
 
 const AuthContext = createContext(null);
+
+async function initializeKeys() {
+  try {
+    const existingPrivate = getStoredPrivateKeyJwk();
+    const existingPublic = getStoredPublicKeyJwk();
+    if (existingPrivate && existingPublic) {
+      await apiFetch("/users/public-key", {
+        method: "PUT",
+        body: JSON.stringify({ public_key: existingPublic }),
+      }).catch(() => {});
+      return;
+    }
+    const keyPair = await generateKeyPair();
+    const privateJwk = await exportPrivateKeyJwk(keyPair.privateKey);
+    const publicJwk = await exportPublicKeyJwk(keyPair.publicKey);
+    storeKeyPair(privateJwk, publicJwk);
+    await apiFetch("/users/public-key", {
+      method: "PUT",
+      body: JSON.stringify({ public_key: publicJwk }),
+    }).catch(() => {});
+  } catch {
+  }
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(undefined);
@@ -28,6 +59,7 @@ export function AuthProvider({ children }) {
     setToken(data.token);
     const { token, ...user } = data;
     setUser(user);
+    initializeKeys();
     return user;
   };
 
@@ -40,6 +72,7 @@ export function AuthProvider({ children }) {
       setToken(data.token);
       const { token, ...user } = data;
       setUser(user);
+      initializeKeys();
     }
     return data;
   };
@@ -52,6 +85,7 @@ export function AuthProvider({ children }) {
     setToken(data.token);
     const { token, ...user } = data;
     setUser(user);
+    initializeKeys();
     return user;
   };
 

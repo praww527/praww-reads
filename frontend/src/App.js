@@ -9,6 +9,8 @@ import BookDetail from "./pages/BookDetail";
 import StoryDetail from "./pages/StoryDetail";
 import Write from "./pages/Write";
 import EditStory from "./pages/EditStory";
+import Messages from "./pages/Messages";
+import Conversation from "./pages/Conversation";
 import Profile from "./pages/Profile";
 import Favorites from "./pages/Favorites";
 import Inbox from "./pages/Inbox";
@@ -30,6 +32,8 @@ function AppShell() {
           <Route path="/books/:id" element={<BookDetail />} />
           <Route path="/stories/:id" element={<StoryDetail />} />
           <Route path="/stories/:id/edit" element={<EditStory />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/messages/:userId" element={<Conversation />} />
           <Route path="/write" element={<Write />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/:userId" element={<Profile />} />

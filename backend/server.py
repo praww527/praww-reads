@@ -1561,6 +1561,100 @@ async def search(q: str = "", type: str = "all", current_user: Optional[dict] = 
 
     return results
 
+# ── Direct Messages (E2E Encrypted) ──────────────────────────────────────────
+class SendDMInput(BaseModel):
+    receiver_id: str
+    receiver_encrypted: dict
+    sender_encrypted: dict
+
+@api_router.put("/users/public-key")
+async def update_public_key(data: dict, current_user: dict = Depends(get_current_user)):
+    public_key = data.get("public_key")
+    if not public_key:
+        raise HTTPException(400, "public_key is required")
+    await db.users.update_one({"id": current_user["id"]}, {"$set": {"public_key": public_key}})
+    return {"ok": True}
+
+@api_router.get("/users/{user_id}/public-key")
+async def get_user_public_key(user_id: str, current_user: dict = Depends(get_current_user)):
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "public_key": 1})
+    if not user:
+        raise HTTPException(404, "User not found")
+    if not user.get("public_key"):
+        raise HTTPException(404, "This user hasn't set up encrypted messaging yet")
+    return {"public_key": user["public_key"]}
+
+@api_router.post("/dm")
+async def send_dm(data: SendDMInput, current_user: dict = Depends(get_current_user)):
+    if data.receiver_id == current_user["id"]:
+        raise HTTPException(400, "Cannot send messages to yourself")
+    receiver = await db.users.find_one({"id": data.receiver_id}, {"_id": 0, "id": 1})
+    if not receiver:
+        raise HTTPException(404, "Recipient not found")
+    msg_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    msg = {
+        "id": msg_id,
+        "sender_id": current_user["id"],
+        "receiver_id": data.receiver_id,
+        "receiver_encrypted": data.receiver_encrypted,
+        "sender_encrypted": data.sender_encrypted,
+        "is_read": False,
+        "created_at": now,
+    }
+    await db.direct_messages.insert_one(msg)
+    msg.pop("_id", None)
+    return msg
+
+@api_router.get("/dm/unread-count")
+async def get_dm_unread_count(current_user: dict = Depends(get_current_user)):
+    count = await db.direct_messages.count_documents({"receiver_id": current_user["id"], "is_read": False})
+    return {"count": count}
+
+@api_router.get("/dm/conversations")
+async def get_dm_conversations(current_user: dict = Depends(get_current_user)):
+    uid = current_user["id"]
+    msgs = await db.direct_messages.find(
+        {"$or": [{"sender_id": uid}, {"receiver_id": uid}]},
+        {"_id": 0, "id": 1, "sender_id": 1, "receiver_id": 1, "created_at": 1, "is_read": 1}
+    ).sort("created_at", -1).to_list(500)
+    seen: dict = {}
+    for m in msgs:
+        other = m["receiver_id"] if m["sender_id"] == uid else m["sender_id"]
+        if other not in seen:
+            seen[other] = {"last_at": m["created_at"], "unread": 0}
+        if m["receiver_id"] == uid and not m["is_read"]:
+            seen[other]["unread"] += 1
+    result = []
+    for other_id, meta in seen.items():
+        other_user = await db.users.find_one({"id": other_id}, {"_id": 0, "id": 1, "first_name": 1, "last_name": 1, "username": 1, "profile_image_url": 1})
+        if not other_user:
+            continue
+        result.append({
+            "other_user_id": other_id,
+            "other_user_name": _get_display_name(other_user),
+            "other_user_profile_image_url": other_user.get("profile_image_url"),
+            "last_at": meta["last_at"],
+            "unread": meta["unread"],
+        })
+    return sorted(result, key=lambda x: x["last_at"], reverse=True)
+
+@api_router.get("/dm/{user_id}")
+async def get_dm_conversation(user_id: str, current_user: dict = Depends(get_current_user)):
+    uid = current_user["id"]
+    msgs = await db.direct_messages.find(
+        {"$or": [
+            {"sender_id": uid, "receiver_id": user_id},
+            {"sender_id": user_id, "receiver_id": uid},
+        ]},
+        {"_id": 0}
+    ).sort("created_at", 1).to_list(200)
+    await db.direct_messages.update_many(
+        {"sender_id": user_id, "receiver_id": uid, "is_read": False},
+        {"$set": {"is_read": True}}
+    )
+    return msgs
+
 # ── Health ───────────────────────────────────────────────────────────────────
 @api_router.get("/")
 async def root():

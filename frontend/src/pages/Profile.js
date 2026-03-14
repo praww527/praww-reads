@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { ArrowLeft, BookOpen, Pencil, Loader2, Users, Camera, X, Check, BadgeCheck, Lock } from "lucide-react";
+import { ArrowLeft, BookOpen, Pencil, Loader2, Users, Camera, X, Check, BadgeCheck, Lock, MessageCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 async function resizeImage(file, maxBytes = 2 * 1024 * 1024) {
@@ -200,11 +200,19 @@ export default function Profile() {
                     </button>
                   </>
                 ) : me && (
-                  <button data-testid="follow-btn" onClick={handleFollow}
-                    className={`inline-flex items-center gap-1.5 text-sm rounded-lg px-4 py-1.5 transition-colors font-medium ${profile.is_following ? "border border-border hover:bg-muted" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}>
-                    <Users className="h-3.5 w-3.5" />
-                    {profile.is_following ? "Following" : "Follow"}
-                  </button>
+                  <>
+                    <button data-testid="follow-btn" onClick={handleFollow}
+                      className={`inline-flex items-center gap-1.5 text-sm rounded-lg px-4 py-1.5 transition-colors font-medium ${profile.is_following ? "border border-border hover:bg-muted" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}>
+                      <Users className="h-3.5 w-3.5" />
+                      {profile.is_following ? "Following" : "Follow"}
+                    </button>
+                    <Link
+                      to={`/messages/${profile.id}`}
+                      className="inline-flex items-center gap-1.5 text-sm rounded-lg border border-border px-4 py-1.5 hover:bg-muted transition-colors font-medium"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" /> Message
+                    </Link>
+                  </>
                 )}
               </div>
             </div>

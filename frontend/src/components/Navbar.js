@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/AuthContext";
+import { apiFetch } from "../lib/api";
 import { BookOpen, MessageCircle, Menu, X, LogOut, User, Search, Settings, Wallet } from "lucide-react";
 
 export default function Navbar() {
@@ -11,7 +12,9 @@ export default function Navbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [unreadDMs, setUnreadDMs] = useState(0);
   const searchInputRef = useRef(null);
+  const unreadPollRef = useRef(null);
 
   useEffect(() => {
     if (searchOpen) setTimeout(() => searchInputRef.current?.focus(), 50);
@@ -20,6 +23,16 @@ export default function Navbar() {
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isAuthenticated) { setUnreadDMs(0); return; }
+    function fetchUnread() {
+      apiFetch("/dm/unread-count").then(r => setUnreadDMs(r.count || 0)).catch(() => {});
+    }
+    fetchUnread();
+    unreadPollRef.current = setInterval(fetchUnread, 15000);
+    return () => clearInterval(unreadPollRef.current);
+  }, [isAuthenticated]);
 
   function handleSearchSubmit(e) {
     e.preventDefault();
@@ -103,8 +116,13 @@ export default function Navbar() {
 
             {isAuthenticated ? (
               <div className="hidden sm:flex items-center gap-2">
-                <Link to="/inbox" className={`p-2 rounded-full hover:bg-muted transition-colors ${isActive("/inbox") ? "text-primary" : "text-muted-foreground"}`}>
+                <Link to="/messages" className={`relative p-2 rounded-full hover:bg-muted transition-colors ${isActive("/messages") ? "text-primary" : "text-muted-foreground"}`}>
                   <MessageCircle className="h-5 w-5" />
+                  {unreadDMs > 0 && (
+                    <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-0.5">
+                      {unreadDMs > 9 ? "9+" : unreadDMs}
+                    </span>
+                  )}
                 </Link>
                 <div className="relative">
                   <button
@@ -192,7 +210,11 @@ export default function Navbar() {
 
           {isAuthenticated ? (
             <div className="border-t border-border pt-3 space-y-1">
-              <Link to="/inbox" className="block px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">Inbox</Link>
+              <Link to="/messages" className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">
+                <span>Messages</span>
+                {unreadDMs > 0 && <span className="bg-primary text-primary-foreground text-xs font-bold px-1.5 py-0.5 rounded-full">{unreadDMs}</span>}
+              </Link>
+              <Link to="/inbox" className="block px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">Marketplace Inbox</Link>
               <Link to="/profile/me" className="block px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">Profile</Link>
               <Link to="/settings?tab=earnings" className="block px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">Earnings & Wallet</Link>
               <Link to="/settings" className="block px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">Settings</Link>
