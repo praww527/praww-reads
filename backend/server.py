@@ -14,13 +14,25 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from concurrent.futures import ThreadPoolExecutor
 from pymongo.errors import DuplicateKeyError
+from urllib.parse import quote, urlparse, urlunparse
 
 _email_executor = ThreadPoolExecutor(max_workers=2)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env", override=True)
 
-MONGO_URL = os.environ["MONGO_URL"]
+def _encode_mongo_url(url: str) -> str:
+    import re
+    match = re.match(r'^(mongodb(?:\+srv)?://)([^:]+):(.+)@(.+)$', url)
+    if match:
+        scheme_and_user = match.group(1) + match.group(2) + ':'
+        password = match.group(3)
+        rest = '@' + match.group(4)
+        encoded_password = quote(password, safe='')
+        return scheme_and_user + encoded_password + rest
+    return url
+
+MONGO_URL = _encode_mongo_url(os.environ["MONGO_URL"])
 DB_NAME = os.environ["DB_NAME"]
 SECRET_KEY = os.environ.get("JWT_SECRET", "prawwreads-secret-key-2024")
 ALGORITHM = "HS256"
