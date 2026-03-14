@@ -884,6 +884,47 @@ def _get_display_name(user: Optional[dict]) -> str:
         return f"{fn} {ln}".strip()
     return user.get("email", "Unknown")
 
+# ── Search ───────────────────────────────────────────────────────────────────
+@api_router.get("/search")
+async def search(q: str = "", type: str = "all", current_user: Optional[dict] = Depends(get_optional_user)):
+    q = q.strip()
+    if not q or len(q) < 1:
+        return {"users": [], "stories": [], "books": []}
+    pattern = {"$regex": q, "$options": "i"}
+    results = {"users": [], "stories": [], "books": []}
+
+    if type in ("all", "users"):
+        users = await db.users.find(
+            {"$or": [{"username": pattern}, {"first_name": pattern}, {"last_name": pattern}]},
+            {"_id": 0, "password_hash": 0}
+        ).limit(10).to_list(10)
+        for u in users:
+            followers = await db.follows.count_documents({"following_id": u["id"]})
+            u["follower_count"] = followers
+        results["users"] = users
+
+    if type in ("all", "stories"):
+        stories = await db.stories.find(
+            {"$or": [{"title": pattern}, {"description": pattern}, {"genre": pattern}]},
+            {"_id": 0}
+        ).sort("created_at", -1).limit(20).to_list(20)
+        for s in stories:
+            author = await db.users.find_one({"id": s["author_id"]}, {"_id": 0, "first_name": 1, "last_name": 1, "username": 1})
+            s["author_name"] = _get_display_name(author) if author else "Unknown"
+            s["like_count"] = await db.story_likes.count_documents({"story_id": s["id"]})
+            if current_user:
+                s["user_liked"] = await db.story_likes.count_documents({"story_id": s["id"], "user_id": current_user["id"]}) > 0
+        results["stories"] = stories
+
+    if type in ("all", "books"):
+        books = await db.books.find(
+            {"$or": [{"title": pattern}, {"author": pattern}, {"description": pattern}, {"genre": pattern}]},
+            {"_id": 0}
+        ).sort("listed_at", -1).limit(20).to_list(20)
+        results["books"] = books
+
+    return results
+
 # ── Health ───────────────────────────────────────────────────────────────────
 @api_router.get("/")
 async def root():

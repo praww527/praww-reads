@@ -10,6 +10,7 @@ import Write from "./pages/Write";
 import Profile from "./pages/Profile";
 import Favorites from "./pages/Favorites";
 import Inbox from "./pages/Inbox";
+import SearchPage from "./pages/Search";
 import "./App.css";
 
 function AppShell() {
@@ -28,6 +29,7 @@ function AppShell() {
           <Route path="/profile/:userId" element={<Profile />} />
           <Route path="/favorites" element={<Favorites />} />
           <Route path="/inbox" element={<Inbox />} />
+          <Route path="/search" element={<SearchPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
