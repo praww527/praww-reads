@@ -332,13 +332,18 @@ async def register(data: RegisterInput, response: Response):
     )
     await send_email(
         to=email,
-        subject="Verify your PRaww Reads account",
+        subject="Your PRaww Reads verification code",
         body_html=f"""
-        <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;">
-          <h2 style="margin-bottom:8px;">Welcome to PRaww Reads!</h2>
-          <p style="color:#6b7280;">Enter the code below to verify your email address. It expires in 15 minutes.</p>
-          <div style="font-size:36px;font-weight:700;letter-spacing:8px;text-align:center;padding:24px 0;color:#4f46e5;">{code}</div>
-          <p style="color:#9ca3af;font-size:13px;">If you did not request this, you can safely ignore this email.</p>
+        <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;">
+          <div style="text-align:center;margin-bottom:24px;">
+            <span style="font-size:28px;font-weight:800;color:#1a1a1a;">📖 PRaww Reads</span>
+          </div>
+          <h2 style="margin-bottom:8px;color:#1a1a1a;">Welcome! Verify your email</h2>
+          <p style="color:#6b7280;margin-bottom:4px;">Enter the code below to activate your account. It expires in <strong>15 minutes</strong>.</p>
+          <div style="font-size:40px;font-weight:700;letter-spacing:10px;text-align:center;padding:28px 0;color:#4f46e5;background:#f5f3ff;border-radius:10px;margin:20px 0;">{code}</div>
+          <p style="color:#9ca3af;font-size:13px;">If you did not create a PRaww Reads account, you can safely ignore this email.</p>
+          <hr style="border:none;border-top:1px solid #f3f4f6;margin:20px 0;" />
+          <p style="color:#d1d5db;font-size:11px;text-align:center;">Sent by PRaww Reads · noreply@praww.co.za</p>
         </div>
         """,
         code=code,
