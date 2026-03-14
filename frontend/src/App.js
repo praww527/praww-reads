@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./hooks/AuthContext";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
@@ -35,7 +35,7 @@ function AppShell() {
           <Route path="/inbox" element={<Inbox />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/earnings" element={<Earnings />} />
+          <Route path="/earnings" element={<Navigate to="/settings?tab=earnings" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
