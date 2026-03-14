@@ -51,6 +51,7 @@ RESERVED_USERNAMES = {"prawwreads", "prawwread", "praww", "prawwreadsofficial", 
 PREMIUM_MONTHLY_ZAR = 59
 PREMIUM_SEMI_ZAR = 29
 PREMIUM_SEMI_MONTHS = 6
+PHONE_CHANGE_DAYS = 15
 
 def _normalize_username(name: str) -> str:
     return re.sub(r'[^a-z0-9]', '', name.lower())
@@ -262,6 +263,27 @@ class UpdateBackupContactInput(BaseModel):
 
 class RequestPremiumInput(BaseModel):
     plan: str  # "monthly" or "semi"
+
+class RequestPhoneVerifyInput(BaseModel):
+    phone: str
+
+class VerifyPhoneInput(BaseModel):
+    code: str
+
+class RequestPasswordChangeCodeInput(BaseModel):
+    pass
+
+class VerifyAndChangePasswordInput(BaseModel):
+    code: str
+    new_password: str
+
+class ForgotPasswordInput(BaseModel):
+    email: str
+
+class ResetPasswordInput(BaseModel):
+    email: str
+    code: str
+    new_password: str
 
 # ── Auth Routes ─────────────────────────────────────────────────────────────
 @api_router.post("/auth/register")
@@ -537,6 +559,224 @@ async def request_premium(data: RequestPremiumInput, current_user: dict = Depend
         "plan": data.plan,
         "price_zar": price,
         "months": months,
+    }
+
+@api_router.post("/auth/request-phone-verify")
+async def request_phone_verify(data: RequestPhoneVerifyInput, current_user: dict = Depends(get_current_user)):
+    """Send a verification code to the user's email to verify a new phone number."""
+    phone = data.phone.strip()
+    if not phone:
+        raise HTTPException(400, "Phone number is required")
+    # Enforce 15-day cooldown on phone changes
+    now = datetime.now(timezone.utc)
+    last_changed_str = current_user.get("phone_changed_at")
+    if last_changed_str:
+        last_changed = datetime.fromisoformat(last_changed_str)
+        if last_changed.tzinfo is None:
+            last_changed = last_changed.replace(tzinfo=timezone.utc)
+        days_since = (now - last_changed).days
+        if days_since < PHONE_CHANGE_DAYS:
+            days_left = PHONE_CHANGE_DAYS - days_since
+            raise HTTPException(400, f"You can only change your phone number once every {PHONE_CHANGE_DAYS} days. Try again in {days_left} day(s).")
+    code = generate_code()
+    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
+    await db.pending_phone_verifications.update_one(
+        {"user_id": current_user["id"]},
+        {"$set": {
+            "user_id": current_user["id"],
+            "pending_phone": phone,
+            "code": code,
+            "expires_at": expires.isoformat(),
+            "created_at": now.isoformat(),
+        }},
+        upsert=True,
+    )
+    await send_email(
+        to=current_user["email"],
+        subject="Verify your phone number — PRaww Reads",
+        body_html=f"""
+        <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;">
+          <div style="text-align:center;margin-bottom:24px;">
+            <span style="font-size:28px;font-weight:800;color:#1a1a1a;">📖 PRaww Reads</span>
+          </div>
+          <h2 style="margin-bottom:8px;color:#1a1a1a;">Verify your phone number</h2>
+          <p style="color:#6b7280;">You are adding <strong>{phone}</strong> as your phone number. Enter this code to confirm. It expires in <strong>60 seconds</strong>.</p>
+          <div style="font-size:40px;font-weight:700;letter-spacing:10px;text-align:center;padding:28px 0;color:#4f46e5;background:#f5f3ff;border-radius:10px;margin:20px 0;">{code}</div>
+          <p style="color:#9ca3af;font-size:13px;">If you did not request this, you can safely ignore this email.</p>
+          <hr style="border:none;border-top:1px solid #f3f4f6;margin:20px 0;" />
+          <p style="color:#d1d5db;font-size:11px;text-align:center;">Sent by PRaww Reads · noreply@praww.co.za</p>
+        </div>
+        """,
+        code=code,
+    )
+    return {"message": f"Verification code sent to your email. Enter it to confirm your phone number.", "email": current_user["email"]}
+
+@api_router.post("/auth/verify-phone")
+async def verify_phone(data: VerifyPhoneInput, current_user: dict = Depends(get_current_user)):
+    """Confirm the phone verification code and save the phone number."""
+    pending = await db.pending_phone_verifications.find_one({"user_id": current_user["id"]})
+    if not pending:
+        raise HTTPException(404, "No pending phone verification. Please request a code first.")
+    expires_at = datetime.fromisoformat(pending["expires_at"])
+    if datetime.now(timezone.utc) > expires_at:
+        await db.pending_phone_verifications.delete_one({"user_id": current_user["id"]})
+        raise HTTPException(410, "Verification code has expired. Please request a new one.")
+    if pending["code"] != data.code.strip():
+        raise HTTPException(400, "Invalid verification code")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one(
+        {"id": current_user["id"]},
+        {"$set": {"phone": pending["pending_phone"], "phone_verified": True, "phone_changed_at": now, "updated_at": now}}
+    )
+    await db.pending_phone_verifications.delete_one({"user_id": current_user["id"]})
+    return {"message": "Phone number verified and saved successfully", "phone": pending["pending_phone"]}
+
+@api_router.post("/auth/request-password-change-code")
+async def request_password_change_code(current_user: dict = Depends(get_current_user)):
+    """Send a verification code to the user's email before allowing a password change."""
+    code = generate_code()
+    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
+    await db.pending_password_changes.update_one(
+        {"user_id": current_user["id"]},
+        {"$set": {
+            "user_id": current_user["id"],
+            "code": code,
+            "expires_at": expires.isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }},
+        upsert=True,
+    )
+    phone = current_user.get("phone", "")
+    phone_note = f"<p style='color:#6b7280;font-size:13px;'>Your registered phone: <strong>{phone}</strong></p>" if phone else ""
+    await send_email(
+        to=current_user["email"],
+        subject="Password change verification — PRaww Reads",
+        body_html=f"""
+        <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;">
+          <div style="text-align:center;margin-bottom:24px;">
+            <span style="font-size:28px;font-weight:800;color:#1a1a1a;">📖 PRaww Reads</span>
+          </div>
+          <h2 style="margin-bottom:8px;color:#1a1a1a;">Confirm your password change</h2>
+          <p style="color:#6b7280;">Someone requested a password change on your account. Enter this code to proceed. It expires in <strong>60 seconds</strong>.</p>
+          <div style="font-size:40px;font-weight:700;letter-spacing:10px;text-align:center;padding:28px 0;color:#4f46e5;background:#f5f3ff;border-radius:10px;margin:20px 0;">{code}</div>
+          {phone_note}
+          <p style="color:#9ca3af;font-size:13px;">If you did not request this change, secure your account immediately.</p>
+          <hr style="border:none;border-top:1px solid #f3f4f6;margin:20px 0;" />
+          <p style="color:#d1d5db;font-size:11px;text-align:center;">Sent by PRaww Reads · noreply@praww.co.za</p>
+        </div>
+        """,
+        code=code,
+    )
+    return {"message": f"Verification code sent to {current_user['email']}. Enter it along with your new password."}
+
+@api_router.post("/auth/verify-and-change-password")
+async def verify_and_change_password(data: VerifyAndChangePasswordInput, current_user: dict = Depends(get_current_user)):
+    """Verify the code and change the password in one step."""
+    pending = await db.pending_password_changes.find_one({"user_id": current_user["id"]})
+    if not pending:
+        raise HTTPException(404, "No pending password change. Please request a verification code first.")
+    expires_at = datetime.fromisoformat(pending["expires_at"])
+    if datetime.now(timezone.utc) > expires_at:
+        await db.pending_password_changes.delete_one({"user_id": current_user["id"]})
+        raise HTTPException(410, "Verification code has expired. Please request a new one.")
+    if pending["code"] != data.code.strip():
+        raise HTTPException(400, "Invalid verification code")
+    if not data.new_password or len(data.new_password) < 6:
+        raise HTTPException(400, "Password must be at least 6 characters")
+    new_hash = hash_password(data.new_password)
+    await db.users.update_one(
+        {"id": current_user["id"]},
+        {"$set": {"password_hash": new_hash, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    await db.pending_password_changes.delete_one({"user_id": current_user["id"]})
+    return {"message": "Password changed successfully"}
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(data: ForgotPasswordInput):
+    """Send a password reset code to the given email."""
+    email = data.email.strip().lower()
+    user = await db.users.find_one({"email": email}, {"_id": 0})
+    # Always return success to prevent email enumeration
+    if not user:
+        return {"message": "If an account with that email exists, a reset code has been sent."}
+    code = generate_code()
+    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
+    await db.password_reset_codes.update_one(
+        {"email": email},
+        {"$set": {
+            "email": email,
+            "code": code,
+            "expires_at": expires.isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }},
+        upsert=True,
+    )
+    phone = user.get("phone", "")
+    phone_note = f"<p style='color:#6b7280;font-size:13px;'>Your registered phone: <strong>{phone}</strong></p>" if phone else ""
+    await send_email(
+        to=email,
+        subject="Reset your password — PRaww Reads",
+        body_html=f"""
+        <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;">
+          <div style="text-align:center;margin-bottom:24px;">
+            <span style="font-size:28px;font-weight:800;color:#1a1a1a;">📖 PRaww Reads</span>
+          </div>
+          <h2 style="margin-bottom:8px;color:#1a1a1a;">Reset your password</h2>
+          <p style="color:#6b7280;">Enter this code in the app to reset your password. It expires in <strong>60 seconds</strong>.</p>
+          <div style="font-size:40px;font-weight:700;letter-spacing:10px;text-align:center;padding:28px 0;color:#4f46e5;background:#f5f3ff;border-radius:10px;margin:20px 0;">{code}</div>
+          {phone_note}
+          <p style="color:#9ca3af;font-size:13px;">If you did not request a password reset, you can safely ignore this email.</p>
+          <hr style="border:none;border-top:1px solid #f3f4f6;margin:20px 0;" />
+          <p style="color:#d1d5db;font-size:11px;text-align:center;">Sent by PRaww Reads · noreply@praww.co.za</p>
+        </div>
+        """,
+        code=code,
+    )
+    return {"message": "If an account with that email exists, a reset code has been sent."}
+
+@api_router.post("/auth/reset-password")
+async def reset_password(data: ResetPasswordInput):
+    """Verify the reset code and set a new password."""
+    email = data.email.strip().lower()
+    pending = await db.password_reset_codes.find_one({"email": email})
+    if not pending:
+        raise HTTPException(404, "No password reset was requested for this email.")
+    expires_at = datetime.fromisoformat(pending["expires_at"])
+    if datetime.now(timezone.utc) > expires_at:
+        await db.password_reset_codes.delete_one({"email": email})
+        raise HTTPException(410, "Reset code has expired. Please request a new one.")
+    if pending["code"] != data.code.strip():
+        raise HTTPException(400, "Invalid reset code")
+    if not data.new_password or len(data.new_password) < 6:
+        raise HTTPException(400, "Password must be at least 6 characters")
+    new_hash = hash_password(data.new_password)
+    await db.users.update_one(
+        {"email": email},
+        {"$set": {"password_hash": new_hash, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    await db.password_reset_codes.delete_one({"email": email})
+    return {"message": "Password reset successfully. You can now log in with your new password."}
+
+@api_router.get("/auth/phone-status")
+async def phone_status(current_user: dict = Depends(get_current_user)):
+    """Returns phone verification status and cooldown info."""
+    now = datetime.now(timezone.utc)
+    last_changed_str = current_user.get("phone_changed_at")
+    can_change = True
+    days_left = 0
+    if last_changed_str:
+        last_changed = datetime.fromisoformat(last_changed_str)
+        if last_changed.tzinfo is None:
+            last_changed = last_changed.replace(tzinfo=timezone.utc)
+        days_since = (now - last_changed).days
+        if days_since < PHONE_CHANGE_DAYS:
+            can_change = False
+            days_left = PHONE_CHANGE_DAYS - days_since
+    return {
+        "phone": current_user.get("phone", ""),
+        "phone_verified": current_user.get("phone_verified", False),
+        "can_change": can_change,
+        "days_left": days_left,
     }
 
 @api_router.get("/auth/user")

@@ -4,23 +4,40 @@ import { useAuth } from "../hooks/AuthContext";
 import { apiFetch } from "../lib/api";
 import {
   ArrowLeft, Lock, Loader2, Check, LogOut, User, Mail, Phone,
-  Star, ShieldCheck, Crown, ChevronRight, AlertCircle
+  Star, ShieldCheck, Crown, ChevronRight, AlertCircle, BadgeCheck, X
 } from "lucide-react";
+
+const inputClass = "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary";
+
+function CodeInput({ value, onChange, placeholder = "123456" }) {
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={value}
+      onChange={e => onChange(e.target.value.replace(/\D/g, "").slice(0, 6))}
+      placeholder={placeholder}
+      maxLength={6}
+      className={inputClass + " tracking-widest text-center text-lg font-mono"}
+    />
+  );
+}
 
 export default function Settings() {
   const { user, isAuthenticated, loading: authLoading, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
 
-  // ── Change Password ─────────────────────────────────────────────────────
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [pwError, setPwError] = useState("");
-  const [pwSuccess, setPwSuccess] = useState("");
-  const [savingPw, setSavingPw] = useState(false);
+  // ── Phone ────────────────────────────────────────────────────────────────
+  const [phoneStatus, setPhoneStatus] = useState(null);
+  const [phoneStep, setPhoneStep] = useState("idle"); // idle | pending | done
+  const [newPhone, setNewPhone] = useState("");
+  const [phoneCode, setPhoneCode] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [phoneSuccess, setPhoneSuccess] = useState("");
+  const [savingPhone, setSavingPhone] = useState(false);
 
-  // ── Change Email ────────────────────────────────────────────────────────
-  const [emailStep, setEmailStep] = useState("idle"); // idle | pending | done
+  // ── Change Email ─────────────────────────────────────────────────────────
+  const [emailStep, setEmailStep] = useState("idle");
   const [newEmail, setNewEmail] = useState("");
   const [emailPassword, setEmailPassword] = useState("");
   const [emailCode, setEmailCode] = useState("");
@@ -28,13 +45,16 @@ export default function Settings() {
   const [emailSuccess, setEmailSuccess] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
 
-  // ── Backup Contact ──────────────────────────────────────────────────────
-  const [backupContact, setBackupContact] = useState("");
-  const [backupError, setBackupError] = useState("");
-  const [backupSuccess, setBackupSuccess] = useState("");
-  const [savingBackup, setSavingBackup] = useState(false);
+  // ── Change Password ──────────────────────────────────────────────────────
+  const [pwStep, setPwStep] = useState("idle"); // idle | pending | done
+  const [pwCode, setPwCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwError, setPwError] = useState("");
+  const [pwSuccess, setPwSuccess] = useState("");
+  const [savingPw, setSavingPw] = useState(false);
 
-  // ── Premium ─────────────────────────────────────────────────────────────
+  // ── Premium ──────────────────────────────────────────────────────────────
   const [premiumError, setPremiumError] = useState("");
   const [premiumSuccess, setPremiumSuccess] = useState("");
   const [requestingPremium, setRequestingPremium] = useState(false);
@@ -44,8 +64,15 @@ export default function Settings() {
   }, [authLoading, isAuthenticated, navigate]);
 
   useEffect(() => {
-    if (user) setBackupContact(user.backup_contact || "");
+    if (user) loadPhoneStatus();
   }, [user]);
+
+  async function loadPhoneStatus() {
+    try {
+      const s = await apiFetch("/api/auth/phone-status");
+      setPhoneStatus(s);
+    } catch { setPhoneStatus(null); }
+  }
 
   if (authLoading) return null;
 
@@ -53,28 +80,50 @@ export default function Settings() {
     ? `${user.first_name} ${user.last_name}`
     : user?.username || user?.email || "User";
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
+  // ── Phone handlers ───────────────────────────────────────────────────────
 
-  async function handleChangePassword(e) {
+  async function handleRequestPhoneCode(e) {
     e.preventDefault();
-    setPwError(""); setPwSuccess("");
-    if (!currentPassword) { setPwError("Current password is required"); return; }
-    if (!newPassword || newPassword.length < 6) { setPwError("New password must be at least 6 characters"); return; }
-    if (newPassword !== confirmPassword) { setPwError("Passwords don't match"); return; }
-    setSavingPw(true);
+    setPhoneError(""); setPhoneSuccess("");
+    if (!newPhone.trim()) { setPhoneError("Enter a phone number"); return; }
+    setSavingPhone(true);
     try {
-      await apiFetch("/api/auth/change-password", {
+      const res = await apiFetch("/api/auth/request-phone-verify", {
         method: "POST",
-        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+        body: JSON.stringify({ phone: newPhone }),
       });
-      setPwSuccess("Password changed successfully!");
-      setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
+      setPhoneStep("pending");
+      setPhoneSuccess(res.message);
     } catch (err) {
-      setPwError(err.message || "Failed to change password");
+      setPhoneError(err.message || "Failed to send code");
     } finally {
-      setSavingPw(false);
+      setSavingPhone(false);
     }
   }
+
+  async function handleVerifyPhone(e) {
+    e.preventDefault();
+    setPhoneError(""); setPhoneSuccess("");
+    if (phoneCode.length < 6) { setPhoneError("Enter the full 6-digit code"); return; }
+    setSavingPhone(true);
+    try {
+      const res = await apiFetch("/api/auth/verify-phone", {
+        method: "POST",
+        body: JSON.stringify({ code: phoneCode }),
+      });
+      await refreshUser();
+      await loadPhoneStatus();
+      setPhoneStep("done");
+      setPhoneSuccess(res.message);
+      setNewPhone(""); setPhoneCode("");
+    } catch (err) {
+      setPhoneError(err.message || "Invalid or expired code");
+    } finally {
+      setSavingPhone(false);
+    }
+  }
+
+  // ── Email handlers ───────────────────────────────────────────────────────
 
   async function handleRequestEmailChange(e) {
     e.preventDefault();
@@ -88,7 +137,7 @@ export default function Settings() {
         body: JSON.stringify({ new_email: newEmail, current_password: emailPassword }),
       });
       setEmailStep("pending");
-      setEmailSuccess(res.message || "Verification code sent to your new email.");
+      setEmailSuccess(res.message);
     } catch (err) {
       setEmailError(err.message || "Failed to send verification code");
     } finally {
@@ -117,23 +166,45 @@ export default function Settings() {
     }
   }
 
-  async function handleSaveBackupContact(e) {
-    e.preventDefault();
-    setBackupError(""); setBackupSuccess("");
-    setSavingBackup(true);
+  // ── Password handlers ────────────────────────────────────────────────────
+
+  async function handleRequestPwCode() {
+    setPwError(""); setPwSuccess("");
+    setSavingPw(true);
     try {
-      await apiFetch("/api/auth/update-backup-contact", {
-        method: "POST",
-        body: JSON.stringify({ backup_contact: backupContact }),
-      });
-      await refreshUser();
-      setBackupSuccess(backupContact ? "Backup contact saved!" : "Backup contact removed.");
+      const res = await apiFetch("/api/auth/request-password-change-code", { method: "POST" });
+      setPwStep("pending");
+      setPwSuccess(res.message);
     } catch (err) {
-      setBackupError(err.message || "Failed to save backup contact");
+      setPwError(err.message || "Failed to send code");
     } finally {
-      setSavingBackup(false);
+      setSavingPw(false);
     }
   }
+
+  async function handleVerifyAndChangePw(e) {
+    e.preventDefault();
+    setPwError(""); setPwSuccess("");
+    if (pwCode.length < 6) { setPwError("Enter the full 6-digit code"); return; }
+    if (!newPassword || newPassword.length < 6) { setPwError("New password must be at least 6 characters"); return; }
+    if (newPassword !== confirmPassword) { setPwError("Passwords don't match"); return; }
+    setSavingPw(true);
+    try {
+      const res = await apiFetch("/api/auth/verify-and-change-password", {
+        method: "POST",
+        body: JSON.stringify({ code: pwCode, new_password: newPassword }),
+      });
+      setPwStep("done");
+      setPwSuccess(res.message);
+      setPwCode(""); setNewPassword(""); setConfirmPassword("");
+    } catch (err) {
+      setPwError(err.message || "Invalid or expired code");
+    } finally {
+      setSavingPw(false);
+    }
+  }
+
+  // ── Premium handlers ─────────────────────────────────────────────────────
 
   async function handleRequestPremium(plan) {
     setPremiumError(""); setPremiumSuccess("");
@@ -155,8 +226,6 @@ export default function Settings() {
     await logout();
     navigate("/");
   }
-
-  const inputClass = "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary";
 
   return (
     <div className="container mx-auto max-w-2xl px-4 py-12">
@@ -180,17 +249,15 @@ export default function Settings() {
             <div className="flex items-center gap-1.5">
               <p className="font-semibold text-foreground">{displayName}</p>
               {(user?.is_premium || user?.is_verified) && (
-                <Crown className={`h-4 w-4 ${user.is_verified ? "text-yellow-500" : "text-primary"}`} title={user.is_verified ? "PRaww Reads Official" : "Premium"} />
+                <Crown className={`h-4 w-4 ${user.is_verified ? "text-yellow-500" : "text-primary"}`} />
               )}
             </div>
             <p className="text-sm text-muted-foreground">{user?.email}</p>
             {user?.username && <p className="text-xs text-muted-foreground">@{user.username}</p>}
           </div>
         </div>
-        <Link
-          to="/profile/me"
-          className="inline-flex items-center gap-2 text-sm rounded-lg border border-border px-4 py-2 hover:bg-muted transition-colors"
-        >
+        <Link to="/profile/me"
+          className="inline-flex items-center gap-2 text-sm rounded-lg border border-border px-4 py-2 hover:bg-muted transition-colors">
           <User className="h-4 w-4" /> Edit Profile
         </Link>
       </div>
@@ -201,6 +268,7 @@ export default function Settings() {
           <div className="flex items-center gap-2 mb-2">
             <Crown className="h-5 w-5 text-primary" />
             <h2 className="font-semibold text-lg">Premium Member</h2>
+            <BadgeCheck className="h-5 w-5 text-primary ml-1" />
           </div>
           <p className="text-sm text-muted-foreground">You have an active Premium account with a verified badge on your profile.</p>
         </div>
@@ -210,10 +278,8 @@ export default function Settings() {
             <Crown className="h-5 w-5 text-primary" />
             <h2 className="font-semibold text-lg">Go Premium</h2>
           </div>
-          <p className="text-sm text-muted-foreground mb-5">Get a verified badge on your profile and support PRaww Reads.</p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-            {/* Monthly plan */}
+          <p className="text-sm text-muted-foreground mb-5">Get a verified badge and support PRaww Reads.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div className="border border-border rounded-xl p-4 flex flex-col gap-2 hover:border-primary/50 transition-colors">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-sm">Monthly</span>
@@ -221,17 +287,12 @@ export default function Settings() {
               </div>
               <p className="text-2xl font-bold">R59<span className="text-sm font-normal text-muted-foreground">/month</span></p>
               <p className="text-xs text-muted-foreground">Cancel any time</p>
-              <button
-                disabled={requestingPremium}
-                onClick={() => handleRequestPremium("monthly")}
-                className="mt-auto flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60"
-              >
+              <button disabled={requestingPremium} onClick={() => handleRequestPremium("monthly")}
+                className="mt-auto flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60">
                 {requestingPremium ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
                 Subscribe
               </button>
             </div>
-
-            {/* 6-month promo */}
             <div className="border-2 border-primary rounded-xl p-4 flex flex-col gap-2 relative overflow-hidden">
               <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-bl-lg font-medium">PROMO</div>
               <div className="flex items-center justify-between">
@@ -240,28 +301,98 @@ export default function Settings() {
               </div>
               <p className="text-2xl font-bold">R29<span className="text-sm font-normal text-muted-foreground">/month</span></p>
               <p className="text-xs text-muted-foreground">R174 billed for 6 months — save R180</p>
-              <button
-                disabled={requestingPremium}
-                onClick={() => handleRequestPremium("semi")}
-                className="mt-auto flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60"
-              >
+              <button disabled={requestingPremium} onClick={() => handleRequestPremium("semi")}
+                className="mt-auto flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60">
                 {requestingPremium ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
                 Subscribe
               </button>
             </div>
           </div>
-
-          {premiumError && (
-            <p className="text-sm text-destructive flex items-center gap-1.5"><AlertCircle className="h-4 w-4" />{premiumError}</p>
-          )}
-          {premiumSuccess && (
-            <p className="text-sm text-green-600 flex items-center gap-1.5"><Check className="h-4 w-4" />{premiumSuccess}</p>
-          )}
+          {premiumError && <p className="text-sm text-destructive flex items-center gap-1.5"><AlertCircle className="h-4 w-4" />{premiumError}</p>}
+          {premiumSuccess && <p className="text-sm text-green-600 flex items-center gap-1.5"><Check className="h-4 w-4" />{premiumSuccess}</p>}
           {!premiumSuccess && !premiumError && (
-            <p className="text-xs text-muted-foreground">After clicking Subscribe, we will contact you at <strong>{user?.email}</strong> with payment details.</p>
+            <p className="text-xs text-muted-foreground">We will contact you at <strong>{user?.email}</strong> with payment details.</p>
           )}
         </div>
       )}
+
+      {/* Phone Number */}
+      <div className="bg-card border border-border rounded-2xl p-6 mb-6 shadow-sm">
+        <div className="flex items-center gap-2 mb-1">
+          <Phone className="h-5 w-5 text-muted-foreground" />
+          <h2 className="font-semibold text-lg">Phone Number</h2>
+          {phoneStatus?.phone_verified && (
+            <span className="ml-auto flex items-center gap-1 text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full">
+              <Check className="h-3 w-3" /> Verified
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">
+          Add a verified phone number for account recovery. You can change it once every {15} days.
+          {phoneStatus?.phone && !phoneStatus?.phone_verified && (
+            <span className="ml-1 text-amber-600 font-medium">(unverified)</span>
+          )}
+        </p>
+
+        {phoneStatus?.phone && (
+          <p className="text-sm font-medium mb-4 flex items-center gap-2">
+            <Phone className="h-4 w-4 text-muted-foreground" />
+            {phoneStatus.phone}
+            {phoneStatus.phone_verified
+              ? <BadgeCheck className="h-4 w-4 text-green-600" />
+              : <span className="text-xs text-amber-600">(not verified)</span>}
+          </p>
+        )}
+
+        {!phoneStatus?.can_change && (
+          <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-4 flex items-center gap-1.5">
+            <AlertCircle className="h-3.5 w-3.5" />
+            You can change your phone number again in <strong>{phoneStatus.days_left} day(s)</strong>.
+          </p>
+        )}
+
+        {phoneStep === "done" ? (
+          <p className="text-sm text-green-600 flex items-center gap-1.5"><Check className="h-4 w-4" />{phoneSuccess}</p>
+        ) : phoneStep === "idle" ? (
+          phoneStatus?.can_change !== false && (
+            <form onSubmit={handleRequestPhoneCode} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">{phoneStatus?.phone ? "New Phone Number" : "Phone Number"}</label>
+                <input type="tel" value={newPhone} onChange={e => setNewPhone(e.target.value)}
+                  placeholder="+27 82 000 0000" className={inputClass} />
+              </div>
+              {phoneError && <p className="text-sm text-destructive flex items-center gap-1.5"><AlertCircle className="h-4 w-4" />{phoneError}</p>}
+              <p className="text-xs text-muted-foreground">A verification code will be sent to your email <strong>{user?.email}</strong>.</p>
+              <button type="submit" disabled={savingPhone}
+                className="flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60">
+                {savingPhone ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
+                Send Verification Code
+              </button>
+            </form>
+          )
+        ) : (
+          <form onSubmit={handleVerifyPhone} className="space-y-4">
+            {phoneSuccess && <p className="text-sm text-green-600 flex items-center gap-1.5"><Check className="h-4 w-4" />{phoneSuccess}</p>}
+            <p className="text-sm text-muted-foreground">A code was sent to <strong>{user?.email}</strong>. Enter it within 60 seconds to verify <strong>{newPhone}</strong>.</p>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Verification Code</label>
+              <CodeInput value={phoneCode} onChange={setPhoneCode} />
+            </div>
+            {phoneError && <p className="text-sm text-destructive flex items-center gap-1.5"><AlertCircle className="h-4 w-4" />{phoneError}</p>}
+            <div className="flex gap-3">
+              <button type="submit" disabled={savingPhone || phoneCode.length < 6}
+                className="flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60">
+                {savingPhone ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                Verify Phone
+              </button>
+              <button type="button" onClick={() => { setPhoneStep("idle"); setPhoneError(""); setPhoneSuccess(""); setPhoneCode(""); }}
+                className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted transition-colors">
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
 
       {/* Change Email */}
       <div className="bg-card border border-border rounded-2xl p-6 mb-6 shadow-sm">
@@ -269,7 +400,6 @@ export default function Settings() {
           <Mail className="h-5 w-5 text-muted-foreground" />
           <h2 className="font-semibold text-lg">Change Email</h2>
         </div>
-
         {emailStep === "done" ? (
           <p className="text-sm text-green-600 flex items-center gap-1.5"><Check className="h-4 w-4" />{emailSuccess}</p>
         ) : emailStep === "idle" ? (
@@ -294,21 +424,19 @@ export default function Settings() {
         ) : (
           <form onSubmit={handleVerifyEmailChange} className="space-y-4">
             {emailSuccess && <p className="text-sm text-green-600 flex items-center gap-1.5"><Check className="h-4 w-4" />{emailSuccess}</p>}
-            <p className="text-sm text-muted-foreground">A 6-digit code was sent to <strong>{newEmail}</strong>. Enter it below within 60 seconds to confirm your new email.</p>
+            <p className="text-sm text-muted-foreground">A code was sent to <strong>{newEmail}</strong>. Enter it within 60 seconds.</p>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Verification Code</label>
-              <input type="text" value={emailCode} onChange={e => setEmailCode(e.target.value)}
-                placeholder="123456" maxLength={6}
-                className={inputClass + " tracking-widest text-center text-lg font-mono"} />
+              <CodeInput value={emailCode} onChange={setEmailCode} />
             </div>
             {emailError && <p className="text-sm text-destructive flex items-center gap-1.5"><AlertCircle className="h-4 w-4" />{emailError}</p>}
             <div className="flex gap-3">
-              <button type="submit" disabled={savingEmail}
+              <button type="submit" disabled={savingEmail || emailCode.length < 6}
                 className="flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60">
                 {savingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                 Confirm New Email
               </button>
-              <button type="button" onClick={() => { setEmailStep("idle"); setEmailError(""); setEmailSuccess(""); }}
+              <button type="button" onClick={() => { setEmailStep("idle"); setEmailError(""); setEmailSuccess(""); setEmailCode(""); }}
                 className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted transition-colors">
                 Cancel
               </button>
@@ -317,63 +445,60 @@ export default function Settings() {
         )}
       </div>
 
-      {/* Backup Contact */}
-      <div className="bg-card border border-border rounded-2xl p-6 mb-6 shadow-sm">
-        <div className="flex items-center gap-2 mb-1">
-          <Phone className="h-5 w-5 text-muted-foreground" />
-          <h2 className="font-semibold text-lg">Backup Contact</h2>
-          <span className="ml-auto text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">Optional</span>
-        </div>
-        <p className="text-sm text-muted-foreground mb-5">
-          Add a phone number or alternative contact in case you lose access to your email and need a verification code.
-        </p>
-        <form onSubmit={handleSaveBackupContact} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Phone Number or Alternate Contact</label>
-            <input type="text" value={backupContact} onChange={e => setBackupContact(e.target.value)}
-              placeholder="+27 82 000 0000 (optional)"
-              className={inputClass} />
-          </div>
-          {backupError && <p className="text-sm text-destructive flex items-center gap-1.5"><AlertCircle className="h-4 w-4" />{backupError}</p>}
-          {backupSuccess && <p className="text-sm text-green-600 flex items-center gap-1.5"><Check className="h-4 w-4" />{backupSuccess}</p>}
-          <button type="submit" disabled={savingBackup}
-            className="flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60">
-            {savingBackup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            Save Backup Contact
-          </button>
-        </form>
-      </div>
-
       {/* Change Password */}
       <div className="bg-card border border-border rounded-2xl p-6 mb-6 shadow-sm">
-        <div className="flex items-center gap-2 mb-5">
+        <div className="flex items-center gap-2 mb-2">
           <Lock className="h-5 w-5 text-muted-foreground" />
           <h2 className="font-semibold text-lg">Change Password</h2>
         </div>
-        <form onSubmit={handleChangePassword} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Current Password</label>
-            <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)}
-              placeholder="••••••••" className={inputClass} />
+        <p className="text-sm text-muted-foreground mb-5">
+          We'll send a verification code to <strong>{user?.email}</strong>
+          {phoneStatus?.phone_verified ? <> or your phone <strong>{phoneStatus.phone}</strong></> : null} before changing your password.
+        </p>
+
+        {pwStep === "done" ? (
+          <p className="text-sm text-green-600 flex items-center gap-1.5"><Check className="h-4 w-4" />{pwSuccess}</p>
+        ) : pwStep === "idle" ? (
+          <div className="space-y-3">
+            {pwError && <p className="text-sm text-destructive flex items-center gap-1.5"><AlertCircle className="h-4 w-4" />{pwError}</p>}
+            <button onClick={handleRequestPwCode} disabled={savingPw}
+              className="flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60">
+              {savingPw ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+              Send Verification Code
+            </button>
           </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">New Password</label>
-            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)}
-              placeholder="At least 6 characters" className={inputClass} />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Confirm New Password</label>
-            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-              placeholder="••••••••" className={inputClass} />
-          </div>
-          {pwError && <p className="text-sm text-destructive flex items-center gap-1.5"><AlertCircle className="h-4 w-4" />{pwError}</p>}
-          {pwSuccess && <p className="text-sm text-green-600 flex items-center gap-1.5"><Check className="h-4 w-4" />{pwSuccess}</p>}
-          <button type="submit" disabled={savingPw}
-            className="flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60">
-            {savingPw ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-            Update Password
-          </button>
-        </form>
+        ) : (
+          <form onSubmit={handleVerifyAndChangePw} className="space-y-4">
+            {pwSuccess && <p className="text-sm text-green-600 flex items-center gap-1.5"><Check className="h-4 w-4" />{pwSuccess}</p>}
+            <p className="text-sm text-muted-foreground">Code sent to <strong>{user?.email}</strong>. Enter it with your new password within 60 seconds.</p>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Verification Code</label>
+              <CodeInput value={pwCode} onChange={setPwCode} />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">New Password</label>
+              <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                placeholder="At least 6 characters" className={inputClass} />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Confirm New Password</label>
+              <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                placeholder="••••••••" className={inputClass} />
+            </div>
+            {pwError && <p className="text-sm text-destructive flex items-center gap-1.5"><AlertCircle className="h-4 w-4" />{pwError}</p>}
+            <div className="flex gap-3">
+              <button type="submit" disabled={savingPw || pwCode.length < 6}
+                className="flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60">
+                {savingPw ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+                Change Password
+              </button>
+              <button type="button" onClick={() => { setPwStep("idle"); setPwError(""); setPwSuccess(""); setPwCode(""); }}
+                className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted transition-colors">
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
       </div>
 
       {/* Account Actions */}
