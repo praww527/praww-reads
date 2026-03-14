@@ -206,12 +206,22 @@ class CreateStoryInput(BaseModel):
     content: str
     description: Optional[str] = None
     cover_image_url: Optional[str] = None
+    is_paid: Optional[bool] = False
+    price: Optional[float] = 0.0
 
 class UpdateStoryInput(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
     description: Optional[str] = None
     cover_image_url: Optional[str] = None
+    is_paid: Optional[bool] = None
+    price: Optional[float] = None
+
+class DonationInput(BaseModel):
+    amount: float
+
+class WithdrawalRequestInput(BaseModel):
+    amount: float
 
 class CreateChapterInput(BaseModel):
     title: str
@@ -324,6 +334,8 @@ async def register(data: RegisterInput, response: Response):
             "email_verified": True,
             "is_verified": False,
             "is_premium": False,
+            "wallet_balance": 0.0,
+            "total_earnings": 0.0,
             "created_at": now,
             "updated_at": now,
         }
@@ -914,8 +926,17 @@ async def get_story_favorites(current_user: dict = Depends(get_current_user)):
 async def get_trending_stories():
     pipeline = [
         {"$lookup": {"from": "story_likes", "localField": "id", "foreignField": "story_id", "as": "likes"}},
-        {"$addFields": {"like_count": {"$size": "$likes"}}},
-        {"$sort": {"like_count": -1, "created_at": -1}},
+        {"$addFields": {
+            "like_count": {"$size": "$likes"},
+            "trending_score": {
+                "$add": [
+                    {"$multiply": [{"$size": "$likes"}, 3]},
+                    {"$multiply": [{"$ifNull": ["$total_donations", 0]}, 2]},
+                    {"$multiply": [{"$ifNull": ["$total_sales", 0]}, 5]},
+                ]
+            }
+        }},
+        {"$sort": {"trending_score": -1, "created_at": -1}},
         {"$limit": 20},
         {"$project": {"_id": 0, "likes": 0}}
     ]
@@ -944,6 +965,13 @@ async def get_story(story_id: str, request: Request, current_user: Optional[dict
     story["user_favorited"] = False
     if current_user:
         story["user_favorited"] = await db.story_favorites.count_documents({"story_id": story_id, "user_id": current_user["id"]}) > 0
+    story["user_purchased"] = False
+    if current_user:
+        if story.get("author_id") == current_user["id"]:
+            story["user_purchased"] = True
+        else:
+            purchase = await db.story_purchases.find_one({"story_id": story_id, "buyer_id": current_user["id"]})
+            story["user_purchased"] = bool(purchase)
     # Track view
     viewer_key = current_user["id"] if current_user else request.client.host
     now = datetime.now(timezone.utc).isoformat()
@@ -967,6 +995,10 @@ async def create_story(data: CreateStoryInput, current_user: dict = Depends(get_
         "description": data.description or "",
         "cover_image_url": data.cover_image_url or "",
         "author_id": current_user["id"],
+        "is_paid": data.is_paid or False,
+        "price": data.price or 0.0,
+        "total_donations": 0.0,
+        "total_sales": 0,
         "created_at": now,
         "updated_at": now,
     }
@@ -991,6 +1023,161 @@ async def delete_story(story_id: str, current_user: dict = Depends(get_current_u
     if result.deleted_count == 0:
         raise HTTPException(403, "Story not found or unauthorized")
     return {"deleted": True}
+
+# ── Monetization: Donations ───────────────────────────────────────────────────
+PLATFORM_COMMISSION = 0.30
+WRITER_SHARE = 0.70
+VALID_DONATION_AMOUNTS = [5, 10, 20, 50]
+MIN_WITHDRAWAL = 100.0
+
+@api_router.post("/stories/{story_id}/donate")
+async def donate_to_story(story_id: str, data: DonationInput, current_user: dict = Depends(get_current_user)):
+    story = await db.stories.find_one({"id": story_id}, {"_id": 0})
+    if not story:
+        raise HTTPException(404, "Story not found")
+    if story["author_id"] == current_user["id"]:
+        raise HTTPException(400, "You cannot donate to your own story")
+    if data.amount not in VALID_DONATION_AMOUNTS:
+        raise HTTPException(400, f"Invalid donation amount. Choose from: {VALID_DONATION_AMOUNTS}")
+    now = datetime.now(timezone.utc).isoformat()
+    writer_amount = round(data.amount * WRITER_SHARE, 2)
+    platform_amount = round(data.amount * PLATFORM_COMMISSION, 2)
+    donation_id = str(uuid.uuid4())
+    donation = {
+        "id": donation_id,
+        "story_id": story_id,
+        "donor_id": current_user["id"],
+        "writer_id": story["author_id"],
+        "amount": data.amount,
+        "writer_amount": writer_amount,
+        "platform_amount": platform_amount,
+        "status": "pending",
+        "created_at": now,
+    }
+    await db.donations.insert_one(donation)
+    await db.stories.update_one({"id": story_id}, {"$inc": {"total_donations": data.amount}})
+    await db.users.update_one(
+        {"id": story["author_id"]},
+        {"$inc": {"wallet_balance": writer_amount, "total_earnings": writer_amount}}
+    )
+    await db.platform_revenue.insert_one({
+        "id": str(uuid.uuid4()),
+        "type": "donation",
+        "ref_id": donation_id,
+        "amount": platform_amount,
+        "created_at": now,
+    })
+    return {
+        "message": f"Thank you for your R{data.amount} donation! We will contact you at {current_user['email']} with payment details.",
+        "donation_id": donation_id,
+        "writer_gets": writer_amount,
+        "platform_gets": platform_amount,
+    }
+
+@api_router.get("/stories/{story_id}/purchase-status")
+async def get_purchase_status(story_id: str, current_user: Optional[dict] = Depends(get_optional_user)):
+    if not current_user:
+        return {"purchased": False}
+    purchase = await db.story_purchases.find_one({"story_id": story_id, "buyer_id": current_user["id"]})
+    story = await db.stories.find_one({"id": story_id}, {"_id": 0, "author_id": 1})
+    is_author = story and story["author_id"] == current_user["id"]
+    return {"purchased": bool(purchase) or is_author}
+
+@api_router.post("/stories/{story_id}/purchase")
+async def purchase_story(story_id: str, current_user: dict = Depends(get_current_user)):
+    story = await db.stories.find_one({"id": story_id}, {"_id": 0})
+    if not story:
+        raise HTTPException(404, "Story not found")
+    if not story.get("is_paid"):
+        raise HTTPException(400, "This story is free to read")
+    if story["author_id"] == current_user["id"]:
+        raise HTTPException(400, "You cannot purchase your own story")
+    existing = await db.story_purchases.find_one({"story_id": story_id, "buyer_id": current_user["id"]})
+    if existing:
+        raise HTTPException(400, "You have already purchased this story")
+    now = datetime.now(timezone.utc).isoformat()
+    price = story.get("price", 0.0)
+    writer_amount = round(price * WRITER_SHARE, 2)
+    platform_amount = round(price * PLATFORM_COMMISSION, 2)
+    purchase_id = str(uuid.uuid4())
+    purchase = {
+        "id": purchase_id,
+        "story_id": story_id,
+        "buyer_id": current_user["id"],
+        "writer_id": story["author_id"],
+        "amount": price,
+        "writer_amount": writer_amount,
+        "platform_amount": platform_amount,
+        "status": "pending",
+        "created_at": now,
+    }
+    await db.story_purchases.insert_one(purchase)
+    await db.stories.update_one({"id": story_id}, {"$inc": {"total_sales": 1}})
+    await db.users.update_one(
+        {"id": story["author_id"]},
+        {"$inc": {"wallet_balance": writer_amount, "total_earnings": writer_amount}}
+    )
+    await db.platform_revenue.insert_one({
+        "id": str(uuid.uuid4()),
+        "type": "story_purchase",
+        "ref_id": purchase_id,
+        "amount": platform_amount,
+        "created_at": now,
+    })
+    return {
+        "message": f"Story unlocked! We will contact you at {current_user['email']} with payment details.",
+        "purchase_id": purchase_id,
+        "amount": price,
+    }
+
+# ── Wallet & Earnings ─────────────────────────────────────────────────────────
+@api_router.get("/wallet")
+async def get_wallet(current_user: dict = Depends(get_current_user)):
+    donations = await db.donations.find({"writer_id": current_user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    purchases = await db.story_purchases.find({"writer_id": current_user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    withdrawals = await db.withdrawals.find({"user_id": current_user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    total_donation_income = sum(d.get("writer_amount", 0) for d in donations)
+    total_sales_income = sum(p.get("writer_amount", 0) for p in purchases)
+    stories = await db.stories.find({"author_id": current_user["id"]}, {"_id": 0, "id": 1, "title": 1, "total_donations": 1, "total_sales": 1, "is_paid": 1, "price": 1}).to_list(100)
+    return {
+        "wallet_balance": current_user.get("wallet_balance", 0.0),
+        "total_earnings": current_user.get("total_earnings", 0.0),
+        "total_donation_income": total_donation_income,
+        "total_sales_income": total_sales_income,
+        "donations": donations,
+        "purchases": purchases,
+        "withdrawals": withdrawals,
+        "stories": stories,
+        "min_withdrawal": MIN_WITHDRAWAL,
+    }
+
+@api_router.post("/wallet/withdraw")
+async def request_withdrawal(data: WithdrawalRequestInput, current_user: dict = Depends(get_current_user)):
+    balance = current_user.get("wallet_balance", 0.0)
+    if balance < MIN_WITHDRAWAL:
+        raise HTTPException(400, f"Minimum withdrawal is R{MIN_WITHDRAWAL}. Your balance is R{balance:.2f}")
+    if data.amount > balance:
+        raise HTTPException(400, f"Insufficient balance. Available: R{balance:.2f}")
+    if data.amount < MIN_WITHDRAWAL:
+        raise HTTPException(400, f"Minimum withdrawal amount is R{MIN_WITHDRAWAL}")
+    now = datetime.now(timezone.utc).isoformat()
+    withdrawal_id = str(uuid.uuid4())
+    withdrawal = {
+        "id": withdrawal_id,
+        "user_id": current_user["id"],
+        "amount": data.amount,
+        "status": "pending",
+        "created_at": now,
+    }
+    await db.withdrawals.insert_one(withdrawal)
+    await db.users.update_one(
+        {"id": current_user["id"]},
+        {"$inc": {"wallet_balance": -data.amount}}
+    )
+    return {
+        "message": f"Withdrawal request of R{data.amount:.2f} submitted. We will contact you at {current_user['email']} with payment details.",
+        "withdrawal_id": withdrawal_id,
+    }
 
 # Story Likes
 @api_router.get("/stories/{story_id}/likes")

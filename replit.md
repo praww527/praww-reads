@@ -47,9 +47,41 @@ memory/        - PRD.md and CHANGELOG.md
 - `frontend/src/lib/api.js` - Fetch utility (relative URL base)
 - `frontend/src/hooks/AuthContext.js` - Auth state management
 
+## Monetization System
+
+### Writer Wallet
+- Each user document includes `wallet_balance` and `total_earnings` fields (default 0.0)
+- Platform takes **30%** commission; writer receives **70%** of every donation/sale
+
+### Donations
+- Readers can donate R5, R10, R20, or R50 to any story they don't own
+- `POST /api/stories/{id}/donate` — immediately credits writer wallet and stores in `donations` collection
+
+### Paid Stories
+- Writers can mark stories as paid (isPaid + price) when publishing via Write page
+- `POST /api/stories/{id}/purchase` — creates a record in `story_purchases` and credits writer
+- `GET /api/stories/{id}/purchase-status` — checks if current user has purchased
+
+### Earnings Dashboard (`/earnings`)
+- Shows wallet balance, total earnings, donations received, story sales
+- Withdrawal requests when balance ≥ R100 (`POST /api/wallet/withdraw`)
+- History of donations, sales, and withdrawals
+
+### Guest User System
+- Unauthenticated users see trending stories, story titles, cover images, likes, and read counts
+- Clicking a story shows first ~600 chars with "Create a free account to continue reading" wall
+- Cannot read full stories, donate, unlock paid stories, comment, follow, or write
+- Guest CTA prompts on home page and story page
+
 ## Database (MongoDB Atlas)
 
-Collections: `users`, `stories`, `chapters`, `story_likes`, `story_favorites`, `story_progress`, `story_comments`, `comment_likes`, `books`, `messages`, `follows`, `book_favorites`, `story_views`
+Collections: `users`, `stories`, `chapters`, `story_likes`, `story_favorites`, `story_progress`, `story_comments`, `comment_likes`, `books`, `messages`, `follows`, `book_favorites`, `story_views`, `donations`, `story_purchases`, `withdrawals`, `platform_revenue`
+
+### Story Fields Added
+- `is_paid` (bool), `price` (float), `total_donations` (float), `total_sales` (int)
+
+### User Fields Added
+- `wallet_balance` (float), `total_earnings` (float)
 
 ## Render.com Deployment
 

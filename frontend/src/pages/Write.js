@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { BookOpen, Plus, Trash2, Loader2, ChevronDown, ChevronUp, Camera, X } from "lucide-react";
+import { BookOpen, Plus, Trash2, Loader2, ChevronDown, ChevronUp, Camera, X, Lock } from "lucide-react";
 
 async function resizeImage(file, maxBytes = 2 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
@@ -28,6 +28,8 @@ async function resizeImage(file, maxBytes = 2 * 1024 * 1024) {
   });
 }
 
+const PRICE_OPTIONS = [10, 20, 30, 50, 75, 100];
+
 export default function Write() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -40,6 +42,8 @@ export default function Write() {
   const [imageProcessing, setImageProcessing] = useState(false);
   const [chapters, setChapters] = useState([{ title: "", content: "" }]);
   const [useChapters, setUseChapters] = useState(false);
+  const [isPaid, setIsPaid] = useState(false);
+  const [price, setPrice] = useState(20);
   const [submitting, setSubmitting] = useState(false);
   const [successId, setSuccessId] = useState(null);
   const [expandedChapter, setExpandedChapter] = useState(0);
@@ -73,11 +77,22 @@ export default function Write() {
       alert("Please add some content to your story.");
       return;
     }
+    if (isPaid && (!price || price <= 0)) {
+      alert("Please set a valid price for your paid story.");
+      return;
+    }
     setSubmitting(true);
     try {
       const story = await apiFetch("/stories", {
         method: "POST",
-        body: JSON.stringify({ title, description, content: useChapters ? chapters[0]?.content || "" : content, cover_image_url: coverImageUrl }),
+        body: JSON.stringify({
+          title,
+          description,
+          content: useChapters ? chapters[0]?.content || "" : content,
+          cover_image_url: coverImageUrl,
+          is_paid: isPaid,
+          price: isPaid ? price : 0,
+        }),
       });
       if (useChapters) {
         for (let i = 0; i < chapters.length; i++) {
@@ -108,7 +123,7 @@ export default function Write() {
         <p className="text-muted-foreground">Your story is now live.</p>
         <div className="flex gap-3">
           <button onClick={() => navigate(`/stories/${successId}`)} className="rounded-lg bg-primary text-primary-foreground px-5 py-2 font-medium hover:bg-primary/90">View Story</button>
-          <button onClick={() => { setTitle(""); setDescription(""); setContent(""); setCoverImageUrl(""); setCoverPreview(null); setChapters([{ title: "", content: "" }]); setSuccessId(null); }}
+          <button onClick={() => { setTitle(""); setDescription(""); setContent(""); setCoverImageUrl(""); setCoverPreview(null); setChapters([{ title: "", content: "" }]); setIsPaid(false); setPrice(20); setSuccessId(null); }}
             className="rounded-lg border border-border px-5 py-2 font-medium hover:bg-muted">Write Another</button>
         </div>
       </div>
@@ -153,6 +168,59 @@ export default function Write() {
           <label className="text-sm font-medium">Description <span className="text-muted-foreground text-xs">(optional)</span></label>
           <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="A brief summary of your story..." rows={3}
             className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
+        </div>
+
+        {/* Monetization Toggle */}
+        <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Lock className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-semibold">Paid Story</p>
+                <p className="text-xs text-muted-foreground">Readers must pay to unlock. You keep 70%.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsPaid(v => !v)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isPaid ? "bg-primary" : "bg-muted"}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${isPaid ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+
+          {isPaid && (
+            <div className="space-y-2 pt-2 border-t border-border">
+              <label className="text-sm font-medium">Story Price (ZAR)</label>
+              <div className="flex flex-wrap gap-2">
+                {PRICE_OPTIONS.map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPrice(p)}
+                    className={`rounded-lg px-4 py-2 text-sm font-semibold border transition-colors ${price === p ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary/40"}`}
+                  >
+                    R{p}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Custom:</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-medium text-muted-foreground">R</span>
+                  <input
+                    type="number"
+                    min="5"
+                    max="999"
+                    value={price}
+                    onChange={e => setPrice(Number(e.target.value))}
+                    className="w-24 rounded-lg border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">You will receive <strong>R{(price * 0.7).toFixed(2)}</strong> per sale (70%). Platform keeps R{(price * 0.3).toFixed(2)} (30%).</p>
+            </div>
+          )}
         </div>
 
         {/* Chapters toggle */}
@@ -202,7 +270,7 @@ export default function Write() {
         <button type="submit" disabled={submitting} data-testid="publish-story-btn"
           className="w-full rounded-xl bg-primary text-primary-foreground font-semibold py-3 hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2 transition-colors">
           {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-          {submitting ? "Publishing..." : "Publish Story"}
+          {submitting ? "Publishing..." : isPaid ? `Publish Paid Story (R${price})` : "Publish Story"}
         </button>
       </form>
     </div>
