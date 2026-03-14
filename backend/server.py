@@ -60,6 +60,24 @@ def is_reserved_username(name: str) -> bool:
     normalized = _normalize_username(name)
     return normalized in {_normalize_username(r) for r in RESERVED_USERNAMES}
 
+OFFICIAL_USERNAME = "prawwreadsofficial"
+
+async def auto_follow_official(new_user_id: str):
+    """Auto-follow the PRaww Reads Official account when a new user registers."""
+    try:
+        official = await db.users.find_one({"username": OFFICIAL_USERNAME}, {"_id": 0, "id": 1})
+        if not official or official["id"] == new_user_id:
+            return
+        existing = await db.follows.find_one({"follower_id": new_user_id, "following_id": official["id"]})
+        if not existing:
+            await db.follows.insert_one({
+                "follower_id": new_user_id,
+                "following_id": official["id"],
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+    except Exception:
+        pass
+
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
@@ -343,6 +361,7 @@ async def register(data: RegisterInput, response: Response):
             await db.users.insert_one(user)
         except DuplicateKeyError:
             raise HTTPException(409, "An account with this email already exists. Please log in instead.")
+        await auto_follow_official(user_id)
         token = create_token(user_id)
         response.set_cookie("praww_token", token, httponly=True, max_age=3600 * ACCESS_TOKEN_EXPIRE_HOURS, samesite="lax")
         result = safe_user(to_str_id(user))
@@ -433,6 +452,7 @@ async def verify_email(data: VerifyEmailInput, response: Response):
         await db.pending_registrations.delete_one({"email": email})
         raise HTTPException(409, "An account with this email already exists. Please log in instead.")
     await db.pending_registrations.delete_one({"email": email})
+    await auto_follow_official(user_id)
     token = create_token(user_id)
     response.set_cookie("praww_token", token, httponly=True, max_age=3600 * ACCESS_TOKEN_EXPIRE_HOURS, samesite="lax")
     result = safe_user(to_str_id(user))
