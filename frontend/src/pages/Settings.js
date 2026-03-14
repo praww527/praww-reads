@@ -347,7 +347,7 @@ export default function Settings() {
         {!phoneStatus?.can_change && (
           <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-4 flex items-center gap-1.5">
             <AlertCircle className="h-3.5 w-3.5" />
-            You can change your phone number again in <strong>{phoneStatus.days_left} day(s)</strong>.
+            You can change your phone number again in <strong>{phoneStatus?.days_left} day(s)</strong>.
           </p>
         )}
 
@@ -373,7 +373,7 @@ export default function Settings() {
         ) : (
           <form onSubmit={handleVerifyPhone} className="space-y-4">
             {phoneSuccess && <p className="text-sm text-green-600 flex items-center gap-1.5"><Check className="h-4 w-4" />{phoneSuccess}</p>}
-            <p className="text-sm text-muted-foreground">A code was sent to <strong>{user?.email}</strong>. Enter it within 60 seconds to verify <strong>{newPhone}</strong>.</p>
+            <p className="text-sm text-muted-foreground">A code was sent to <strong>{user?.email}</strong>. Enter it within 10 minutes to verify <strong>{newPhone}</strong>.</p>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Verification Code</label>
               <CodeInput value={phoneCode} onChange={setPhoneCode} />
@@ -424,7 +424,7 @@ export default function Settings() {
         ) : (
           <form onSubmit={handleVerifyEmailChange} className="space-y-4">
             {emailSuccess && <p className="text-sm text-green-600 flex items-center gap-1.5"><Check className="h-4 w-4" />{emailSuccess}</p>}
-            <p className="text-sm text-muted-foreground">A code was sent to <strong>{newEmail}</strong>. Enter it within 60 seconds.</p>
+            <p className="text-sm text-muted-foreground">A code was sent to <strong>{newEmail}</strong>. Enter it within 10 minutes.</p>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Verification Code</label>
               <CodeInput value={emailCode} onChange={setEmailCode} />
@@ -470,7 +470,7 @@ export default function Settings() {
         ) : (
           <form onSubmit={handleVerifyAndChangePw} className="space-y-4">
             {pwSuccess && <p className="text-sm text-green-600 flex items-center gap-1.5"><Check className="h-4 w-4" />{pwSuccess}</p>}
-            <p className="text-sm text-muted-foreground">Code sent to <strong>{user?.email}</strong>. Enter it with your new password within 60 seconds.</p>
+            <p className="text-sm text-muted-foreground">Code sent to <strong>{user?.email}</strong>. Enter it with your new password within 10 minutes.</p>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Verification Code</label>
               <CodeInput value={pwCode} onChange={setPwCode} />

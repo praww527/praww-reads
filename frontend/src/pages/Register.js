@@ -146,7 +146,7 @@ export default function RegisterPage() {
               <h2 className="font-serif text-xl font-bold">Check your email</h2>
               <p className="text-sm text-muted-foreground">
                 We sent a 6-digit code to <span className="font-medium text-foreground">{verifyEmail_}</span>.
-                It expires in 60 seconds.
+                It expires in 10 minutes.
               </p>
             </div>
 

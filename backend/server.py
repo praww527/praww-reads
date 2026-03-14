@@ -338,7 +338,7 @@ async def register(data: RegisterInput, response: Response):
         return result
 
     code = generate_code()
-    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
+    expires = datetime.now(timezone.utc) + timedelta(minutes=10)
     await db.pending_registrations.update_one(
         {"email": email},
         {"$set": {
@@ -361,7 +361,7 @@ async def register(data: RegisterInput, response: Response):
             <span style="font-size:28px;font-weight:800;color:#1a1a1a;">📖 PRaww Reads</span>
           </div>
           <h2 style="margin-bottom:8px;color:#1a1a1a;">Welcome! Verify your email</h2>
-          <p style="color:#6b7280;margin-bottom:4px;">Enter the code below to activate your account. It expires in <strong>60 seconds</strong>.</p>
+          <p style="color:#6b7280;margin-bottom:4px;">Enter the code below to activate your account. It expires in <strong>10 minutes</strong>.</p>
           <div style="font-size:40px;font-weight:700;letter-spacing:10px;text-align:center;padding:28px 0;color:#4f46e5;background:#f5f3ff;border-radius:10px;margin:20px 0;">{code}</div>
           <p style="color:#9ca3af;font-size:13px;">If you did not create a PRaww Reads account, you can safely ignore this email.</p>
           <hr style="border:none;border-top:1px solid #f3f4f6;margin:20px 0;" />
@@ -468,7 +468,7 @@ async def request_email_change(data: RequestEmailChangeInput, current_user: dict
     if existing:
         raise HTTPException(409, "An account with this email already exists")
     code = generate_code()
-    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
+    expires = datetime.now(timezone.utc) + timedelta(minutes=10)
     await db.pending_email_changes.update_one(
         {"user_id": current_user["id"]},
         {"$set": {
@@ -488,7 +488,7 @@ async def request_email_change(data: RequestEmailChangeInput, current_user: dict
         body_html=f"""
         <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;">
           <h2 style="margin-bottom:8px;">Confirm your new email</h2>
-          <p style="color:#6b7280;">Enter this code in the app to confirm your new email address. It expires in <strong>60 seconds</strong>.</p>
+          <p style="color:#6b7280;">Enter this code in the app to confirm your new email address. It expires in <strong>10 minutes</strong>.</p>
           <div style="font-size:36px;font-weight:700;letter-spacing:8px;text-align:center;padding:24px 0;color:#4f46e5;">{code}</div>
           <p style="color:#9ca3af;font-size:13px;">If you did not request this change, you can safely ignore this email.</p>
           {backup_note}
@@ -579,7 +579,7 @@ async def request_phone_verify(data: RequestPhoneVerifyInput, current_user: dict
             days_left = PHONE_CHANGE_DAYS - days_since
             raise HTTPException(400, f"You can only change your phone number once every {PHONE_CHANGE_DAYS} days. Try again in {days_left} day(s).")
     code = generate_code()
-    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
+    expires = datetime.now(timezone.utc) + timedelta(minutes=10)
     await db.pending_phone_verifications.update_one(
         {"user_id": current_user["id"]},
         {"$set": {
@@ -600,7 +600,7 @@ async def request_phone_verify(data: RequestPhoneVerifyInput, current_user: dict
             <span style="font-size:28px;font-weight:800;color:#1a1a1a;">📖 PRaww Reads</span>
           </div>
           <h2 style="margin-bottom:8px;color:#1a1a1a;">Verify your phone number</h2>
-          <p style="color:#6b7280;">You are adding <strong>{phone}</strong> as your phone number. Enter this code to confirm. It expires in <strong>60 seconds</strong>.</p>
+          <p style="color:#6b7280;">You are adding <strong>{phone}</strong> as your phone number. Enter this code to confirm. It expires in <strong>10 minutes</strong>.</p>
           <div style="font-size:40px;font-weight:700;letter-spacing:10px;text-align:center;padding:28px 0;color:#4f46e5;background:#f5f3ff;border-radius:10px;margin:20px 0;">{code}</div>
           <p style="color:#9ca3af;font-size:13px;">If you did not request this, you can safely ignore this email.</p>
           <hr style="border:none;border-top:1px solid #f3f4f6;margin:20px 0;" />
@@ -635,7 +635,7 @@ async def verify_phone(data: VerifyPhoneInput, current_user: dict = Depends(get_
 async def request_password_change_code(current_user: dict = Depends(get_current_user)):
     """Send a verification code to the user's email before allowing a password change."""
     code = generate_code()
-    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
+    expires = datetime.now(timezone.utc) + timedelta(minutes=10)
     await db.pending_password_changes.update_one(
         {"user_id": current_user["id"]},
         {"$set": {
@@ -657,7 +657,7 @@ async def request_password_change_code(current_user: dict = Depends(get_current_
             <span style="font-size:28px;font-weight:800;color:#1a1a1a;">📖 PRaww Reads</span>
           </div>
           <h2 style="margin-bottom:8px;color:#1a1a1a;">Confirm your password change</h2>
-          <p style="color:#6b7280;">Someone requested a password change on your account. Enter this code to proceed. It expires in <strong>60 seconds</strong>.</p>
+          <p style="color:#6b7280;">Someone requested a password change on your account. Enter this code to proceed. It expires in <strong>10 minutes</strong>.</p>
           <div style="font-size:40px;font-weight:700;letter-spacing:10px;text-align:center;padding:28px 0;color:#4f46e5;background:#f5f3ff;border-radius:10px;margin:20px 0;">{code}</div>
           {phone_note}
           <p style="color:#9ca3af;font-size:13px;">If you did not request this change, secure your account immediately.</p>
@@ -700,7 +700,7 @@ async def forgot_password(data: ForgotPasswordInput):
     if not user:
         return {"message": "If an account with that email exists, a reset code has been sent."}
     code = generate_code()
-    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
+    expires = datetime.now(timezone.utc) + timedelta(minutes=10)
     await db.password_reset_codes.update_one(
         {"email": email},
         {"$set": {
@@ -722,7 +722,7 @@ async def forgot_password(data: ForgotPasswordInput):
             <span style="font-size:28px;font-weight:800;color:#1a1a1a;">📖 PRaww Reads</span>
           </div>
           <h2 style="margin-bottom:8px;color:#1a1a1a;">Reset your password</h2>
-          <p style="color:#6b7280;">Enter this code in the app to reset your password. It expires in <strong>60 seconds</strong>.</p>
+          <p style="color:#6b7280;">Enter this code in the app to reset your password. It expires in <strong>10 minutes</strong>.</p>
           <div style="font-size:40px;font-weight:700;letter-spacing:10px;text-align:center;padding:28px 0;color:#4f46e5;background:#f5f3ff;border-radius:10px;margin:20px 0;">{code}</div>
           {phone_note}
           <p style="color:#9ca3af;font-size:13px;">If you did not request a password reset, you can safely ignore this email.</p>
@@ -791,6 +791,21 @@ async def get_my_profile(current_user: dict = Depends(get_current_user)):
     following = await db.follows.count_documents({"follower_id": current_user["id"]})
     return {**safe_user(current_user), "stories": stories, "follower_count": followers, "following_count": following}
 
+@api_router.get("/profile/username-status")
+async def username_status(current_user: dict = Depends(get_current_user)):
+    """Returns whether the user can change their username and how many days remain."""
+    now = datetime.now(timezone.utc)
+    last_changed_str = current_user.get("username_changed_at")
+    if not last_changed_str:
+        return {"can_change": True, "days_left": 0}
+    last_changed = datetime.fromisoformat(last_changed_str)
+    if last_changed.tzinfo is None:
+        last_changed = last_changed.replace(tzinfo=timezone.utc)
+    days_since = (now - last_changed).days
+    if days_since >= USERNAME_CHANGE_DAYS:
+        return {"can_change": True, "days_left": 0}
+    return {"can_change": False, "days_left": USERNAME_CHANGE_DAYS - days_since}
+
 @api_router.get("/profile/{user_id}")
 async def get_profile(user_id: str, current_user: Optional[dict] = Depends(get_optional_user)):
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
@@ -845,21 +860,6 @@ async def update_profile(data: UpdateProfileInput, current_user: dict = Depends(
     await db.users.update_one({"id": current_user["id"]}, {"$set": updates})
     updated = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
     return safe_user(updated)
-
-@api_router.get("/profile/username-status")
-async def username_status(current_user: dict = Depends(get_current_user)):
-    """Returns whether the user can change their username and how many days remain."""
-    now = datetime.now(timezone.utc)
-    last_changed_str = current_user.get("username_changed_at")
-    if not last_changed_str:
-        return {"can_change": True, "days_left": 0}
-    last_changed = datetime.fromisoformat(last_changed_str)
-    if last_changed.tzinfo is None:
-        last_changed = last_changed.replace(tzinfo=timezone.utc)
-    days_since = (now - last_changed).days
-    if days_since >= USERNAME_CHANGE_DAYS:
-        return {"can_change": True, "days_left": 0}
-    return {"can_change": False, "days_left": USERNAME_CHANGE_DAYS - days_since}
 
 # ── Follow Routes ───────────────────────────────────────────────────────────
 @api_router.post("/follow/{user_id}")

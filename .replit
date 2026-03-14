@@ -43,4 +43,4 @@ externalPort = 80
 [deployment]
 deploymentTarget = "autoscale"
 run = ["bash", "-c", "cd backend && uvicorn server:app --host 0.0.0.0 --port 5000"]
-build = ["bash", "-c", "cd frontend && CI=false yarn build"]
+build = ["bash", "-c", "cd frontend && npm install && CI=false node_modules/.bin/craco build"]

@@ -169,7 +169,7 @@ export default function LoginPage() {
                     </p>
                   )}
                   <p className="text-sm text-muted-foreground mt-1">
-                    Code sent to <strong>{forgotEmail}</strong>. Enter it within 60 seconds.
+                    Code sent to <strong>{forgotEmail}</strong>. Enter it within 10 minutes.
                   </p>
                 </div>
                 <div className="space-y-1.5">

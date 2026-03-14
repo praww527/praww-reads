@@ -76,8 +76,15 @@ The build command installs Python dependencies. The pre-built React frontend (in
 
 ## Build Instructions
 
-After changing frontend code:
+After changing frontend code, ensure node_modules are installed first then build:
 ```bash
-cd frontend && CI=false node_modules/.bin/craco build
+cd frontend && npm install && CI=false node_modules/.bin/craco build
 ```
 Then restart the workflow.
+
+## Bug Fixes Applied (March 2026)
+
+- **Settings page crash**: Fixed null-reference crash on `phoneStatus.days_left` when phone status hadn't loaded yet (now uses optional chaining `phoneStatus?.days_left`)
+- **Route ordering bug**: Moved `/api/profile/username-status` route before the `/api/profile/{user_id}` catch-all route in `server.py` — previously FastAPI was treating "username-status" as a user ID
+- **Verification code expiry**: Changed from 60 seconds to 10 minutes across all email verification flows (registration, email change, phone verify, password change, password reset) — 60 seconds was too short for email delivery
+- **Deployment build command**: Updated to `npm install && CI=false node_modules/.bin/craco build` to ensure dependencies are installed before building
