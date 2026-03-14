@@ -294,7 +294,7 @@ export default function Settings() {
         ) : (
           <form onSubmit={handleVerifyEmailChange} className="space-y-4">
             {emailSuccess && <p className="text-sm text-green-600 flex items-center gap-1.5"><Check className="h-4 w-4" />{emailSuccess}</p>}
-            <p className="text-sm text-muted-foreground">A 6-digit code was sent to <strong>{newEmail}</strong>. Enter it below to confirm your new email.</p>
+            <p className="text-sm text-muted-foreground">A 6-digit code was sent to <strong>{newEmail}</strong>. Enter it below within 60 seconds to confirm your new email.</p>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Verification Code</label>
               <input type="text" value={emailCode} onChange={e => setEmailCode(e.target.value)}

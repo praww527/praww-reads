@@ -316,7 +316,7 @@ async def register(data: RegisterInput, response: Response):
         return result
 
     code = generate_code()
-    expires = datetime.now(timezone.utc) + timedelta(minutes=15)
+    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
     await db.pending_registrations.update_one(
         {"email": email},
         {"$set": {
@@ -339,7 +339,7 @@ async def register(data: RegisterInput, response: Response):
             <span style="font-size:28px;font-weight:800;color:#1a1a1a;">📖 PRaww Reads</span>
           </div>
           <h2 style="margin-bottom:8px;color:#1a1a1a;">Welcome! Verify your email</h2>
-          <p style="color:#6b7280;margin-bottom:4px;">Enter the code below to activate your account. It expires in <strong>15 minutes</strong>.</p>
+          <p style="color:#6b7280;margin-bottom:4px;">Enter the code below to activate your account. It expires in <strong>60 seconds</strong>.</p>
           <div style="font-size:40px;font-weight:700;letter-spacing:10px;text-align:center;padding:28px 0;color:#4f46e5;background:#f5f3ff;border-radius:10px;margin:20px 0;">{code}</div>
           <p style="color:#9ca3af;font-size:13px;">If you did not create a PRaww Reads account, you can safely ignore this email.</p>
           <hr style="border:none;border-top:1px solid #f3f4f6;margin:20px 0;" />
@@ -446,7 +446,7 @@ async def request_email_change(data: RequestEmailChangeInput, current_user: dict
     if existing:
         raise HTTPException(409, "An account with this email already exists")
     code = generate_code()
-    expires = datetime.now(timezone.utc) + timedelta(minutes=15)
+    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
     await db.pending_email_changes.update_one(
         {"user_id": current_user["id"]},
         {"$set": {
@@ -466,7 +466,7 @@ async def request_email_change(data: RequestEmailChangeInput, current_user: dict
         body_html=f"""
         <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;">
           <h2 style="margin-bottom:8px;">Confirm your new email</h2>
-          <p style="color:#6b7280;">Enter this code in the app to confirm your new email address. It expires in 15 minutes.</p>
+          <p style="color:#6b7280;">Enter this code in the app to confirm your new email address. It expires in <strong>60 seconds</strong>.</p>
           <div style="font-size:36px;font-weight:700;letter-spacing:8px;text-align:center;padding:24px 0;color:#4f46e5;">{code}</div>
           <p style="color:#9ca3af;font-size:13px;">If you did not request this change, you can safely ignore this email.</p>
           {backup_note}
