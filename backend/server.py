@@ -1139,6 +1139,25 @@ async def get_story(story_id: str, request: Request, current_user: Optional[dict
     story["view_count"] = view_count
     return story
 
+def _run_ai_gate(text: str):
+    """Run AI check and raise 422 with score details if content is likely AI-generated (score >= 80)."""
+    if not text or not text.strip():
+        return
+    result = _analyze_ai_content(text)
+    if result["verdict"] == "too_short":
+        return
+    if result["score"] >= 80:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "type": "ai_detected",
+                "message": "Content appears to be AI-generated and cannot be published.",
+                "score": result["score"],
+                "verdict": result["verdict"],
+                "indicators": result["indicators"],
+            },
+        )
+
 @api_router.post("/stories")
 async def create_story(data: CreateStoryInput, current_user: dict = Depends(get_current_user)):
     if not data.title or not data.title.strip():
@@ -1151,6 +1170,8 @@ async def create_story(data: CreateStoryInput, current_user: dict = Depends(get_
         raise HTTPException(400, "Story content is too long (max 500,000 characters)")
     if data.is_paid and (not data.price or data.price < 5 or data.price > 9999):
         raise HTTPException(400, "Paid story price must be between R5 and R9999")
+    if data.content:
+        _run_ai_gate(data.content)
     story_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     story = {
@@ -1176,6 +1197,8 @@ async def update_story(story_id: str, data: UpdateStoryInput, current_user: dict
     story = await db.stories.find_one({"id": story_id, "author_id": current_user["id"]})
     if not story:
         raise HTTPException(403, "Story not found or unauthorized")
+    if data.content:
+        _run_ai_gate(data.content)
     updates = {k: v for k, v in data.model_dump().items() if v is not None}
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.stories.update_one({"id": story_id}, {"$set": updates})
@@ -1608,6 +1631,8 @@ async def create_chapter(story_id: str, data: CreateChapterInput, current_user: 
     story = await db.stories.find_one({"id": story_id, "author_id": current_user["id"]})
     if not story:
         raise HTTPException(403, "Story not found or unauthorized")
+    if data.content:
+        _run_ai_gate(data.content)
     count = await db.chapters.count_documents({"story_id": story_id})
     chapter_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
@@ -1624,6 +1649,8 @@ async def update_chapter(chapter_id: str, data: UpdateChapterInput, current_user
     story = await db.stories.find_one({"id": chapter["story_id"], "author_id": current_user["id"]})
     if not story:
         raise HTTPException(403, "Unauthorized")
+    if data.content:
+        _run_ai_gate(data.content)
     updates = {k: v for k, v in data.model_dump().items() if v is not None}
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.chapters.update_one({"id": chapter_id}, {"$set": updates})

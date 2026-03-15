@@ -4,7 +4,7 @@ import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
 import {
   BookOpen, Plus, Trash2, Loader2, ChevronDown, ChevronUp,
-  Camera, X, Lock, AlertCircle, Bot, AlertTriangle
+  Camera, X, Lock, AlertCircle, Bot, AlertTriangle, CheckCircle2
 } from "lucide-react";
 
 async function resizeImage(file, maxBytes = 2 * 1024 * 1024) {
@@ -134,32 +134,20 @@ export default function Write() {
     } else if (!content.trim()) { setError("Please add some content to your story."); return; }
     if (isPaid && (!price || price <= 0)) { setError("Please set a valid price for your paid story."); return; }
 
-    // Build the full text for AI analysis
     const aiContent = useChapters
       ? chapters.map(c => c.content).join("\n\n")
       : content;
-
-    if (!aiContent.trim() || aiContent.trim().split(/\s+/).length < 60) {
-      doPublish();
-      return;
-    }
 
     setAiChecking(true);
     setAiResult(null);
     try {
       const result = await apiFetch("/stories/check-ai", {
         method: "POST",
-        body: JSON.stringify({
-          content: aiContent,
-          chapters: null,
-        }),
+        body: JSON.stringify({ content: aiContent, chapters: null }),
       });
       setAiResult(result);
-      if (result.verdict === "likely_human" || result.verdict === "too_short") {
-        doPublish();
-      }
+      // Always show the panel so the author sees their score — never auto-publish
     } catch (err) {
-      // AI check failed — do NOT silently publish; warn the user
       setError("Content check failed (" + (err.message || "server error") + "). Please try again.");
     } finally {
       setAiChecking(false);
@@ -186,8 +174,10 @@ export default function Write() {
     );
   }
 
-  const showAiPanel = aiResult && (aiResult.verdict === "likely_ai" || aiResult.verdict === "possibly_ai");
+  const showAiPanel = !!aiResult;
   const isHardBlock = aiResult && aiResult.score >= 80;
+  const isWarning = aiResult && aiResult.score >= 40 && aiResult.score < 80;
+  const isVerified = aiResult && aiResult.score < 40;
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-10">
@@ -322,30 +312,54 @@ export default function Write() {
           </div>
         )}
 
-        {/* AI Detection Result Panel */}
+        {/* AI Detection Result Panel — always shown after verification */}
         {showAiPanel && (
-          <div className={`rounded-2xl border p-5 space-y-4 ${isHardBlock ? "border-red-300 bg-red-50 dark:bg-red-950/20 dark:border-red-800" : "border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800"}`}>
+          <div className={`rounded-2xl border p-5 space-y-4 ${
+            isHardBlock ? "border-red-300 bg-red-50 dark:bg-red-950/20 dark:border-red-800"
+            : isWarning ? "border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800"
+            : "border-green-300 bg-green-50 dark:bg-green-950/20 dark:border-green-800"
+          }`}>
             <div className="flex items-start gap-4">
-              <div className="flex flex-col items-center gap-2 shrink-0">
+              <div className="shrink-0">
                 {isHardBlock
                   ? <Bot className="h-8 w-8 text-red-500" />
-                  : <AlertTriangle className="h-8 w-8 text-amber-500" />
+                  : isWarning
+                  ? <AlertTriangle className="h-8 w-8 text-amber-500" />
+                  : <CheckCircle2 className="h-8 w-8 text-green-500" />
                 }
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className={`font-bold text-base mb-1 ${isHardBlock ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
-                  {isHardBlock ? "Publishing rejected — AI-generated content detected" : "This content may contain AI-generated text"}
-                </h3>
-                <p className={`text-sm ${isHardBlock ? "text-red-600 dark:text-red-300" : "text-amber-700 dark:text-amber-300"}`}>
+                <h3 className={`font-bold text-base mb-1 ${
+                  isHardBlock ? "text-red-700 dark:text-red-400"
+                  : isWarning ? "text-amber-700 dark:text-amber-400"
+                  : "text-green-700 dark:text-green-400"
+                }`}>
                   {isHardBlock
-                    ? "PRaww Reads only allows original human writing. Your content scored " + aiResult.score + "/100 on our AI detector and cannot be published."
-                    : "We detected some patterns common in AI writing. You can still publish, but consider reviewing your content."}
+                    ? "Publishing rejected — AI-generated content detected"
+                    : isWarning
+                    ? "Possible AI patterns detected"
+                    : aiResult.verdict === "too_short"
+                    ? "Content verified — too short to fully analyse"
+                    : "Content verified — looks human-written"}
+                </h3>
+                <p className={`text-sm ${
+                  isHardBlock ? "text-red-600 dark:text-red-300"
+                  : isWarning ? "text-amber-700 dark:text-amber-300"
+                  : "text-green-700 dark:text-green-300"
+                }`}>
+                  {isHardBlock
+                    ? `Your content scored ${aiResult.score}/100 on our AI detector and cannot be published. PRaww Reads only allows original human writing.`
+                    : isWarning
+                    ? `Your content scored ${aiResult.score}/100. Some AI writing patterns were detected. You may still publish, but consider reviewing your content.`
+                    : aiResult.verdict === "too_short"
+                    ? "Your content is too short to fully analyse. You're good to go!"
+                    : `Your content scored ${aiResult.score}/100. It reads as original, human writing. You're good to publish!`}
                 </p>
               </div>
-              <AiScoreGauge score={aiResult.score} />
+              {aiResult.verdict !== "too_short" && <AiScoreGauge score={aiResult.score} />}
             </div>
 
-            {aiResult.indicators?.length > 0 && (
+            {aiResult.indicators?.length > 0 && aiResult.score >= 40 && (
               <div className="space-y-1">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Signals detected</p>
                 <ul className="space-y-1">
@@ -362,27 +376,25 @@ export default function Write() {
             {isHardBlock ? (
               <>
                 <p className="text-xs text-muted-foreground italic">If you believe this is a mistake, please rewrite your content in your own voice and try again.</p>
-                <button type="button" onClick={() => { setAiResult(null); }}
+                <button type="button" onClick={() => setAiResult(null)}
                   className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-semibold hover:bg-muted transition-colors">
                   Go Back &amp; Edit My Story
                 </button>
               </>
             ) : (
-              <>
-                <p className="text-xs text-muted-foreground italic">AI detection is not 100% accurate. If your content is genuinely your own, you can still publish it.</p>
-                <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={() => { setAiResult(null); }}
-                    className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold hover:bg-muted transition-colors">
-                    Cancel — Edit My Story
-                  </button>
-                  <button type="button" onClick={() => doPublish()}
-                    disabled={submitting}
-                    className="flex-1 rounded-xl bg-amber-500 hover:bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
-                    {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Publish Anyway
-                  </button>
-                </div>
-              </>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setAiResult(null)}
+                  className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold hover:bg-muted transition-colors">
+                  Edit My Story
+                </button>
+                <button type="button" onClick={() => doPublish()} disabled={submitting}
+                  className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-60 ${
+                    isWarning ? "bg-amber-500 hover:bg-amber-600" : "bg-green-600 hover:bg-green-700"
+                  }`}>
+                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {isWarning ? "Publish Anyway" : isPaid ? `Publish Paid Story (R${price})` : "Publish Story"}
+                </button>
+              </div>
             )}
           </div>
         )}
