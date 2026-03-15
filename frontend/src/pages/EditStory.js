@@ -64,8 +64,8 @@ export default function EditStory() {
   async function fetchStory() {
     try {
       const [s, chs] = await Promise.all([
-        apiFetch(`/stories/${id}`),
-        apiFetch(`/stories/${id}/chapters`),
+        apiFetch(`/api/stories/${id}`),
+        apiFetch(`/api/stories/${id}/chapters`),
       ]);
       if (s.author_id !== user?.id) {
         navigate(`/stories/${id}`);
@@ -134,7 +134,7 @@ export default function EditStory() {
 
     setSubmitting(true);
     try {
-      await apiFetch(`/stories/${id}`, {
+      await apiFetch(`/api/stories/${id}`, {
         method: "PATCH",
         body: JSON.stringify({
           title: title.trim(),
@@ -147,18 +147,18 @@ export default function EditStory() {
       });
 
       for (const chapId of deletedChapterIds) {
-        await apiFetch(`/chapters/${chapId}`, { method: "DELETE" }).catch(() => {});
+        await apiFetch(`/api/chapters/${chapId}`, { method: "DELETE" }).catch(() => {});
       }
 
       for (let i = 0; i < chapters.length; i++) {
         const ch = chapters[i];
         if (ch.isNew) {
-          await apiFetch(`/stories/${id}/chapters`, {
+          await apiFetch(`/api/stories/${id}/chapters`, {
             method: "POST",
             body: JSON.stringify({ title: ch.title.trim(), content: ch.content.trim(), order_index: i }),
           });
         } else if (ch.id) {
-          await apiFetch(`/chapters/${ch.id}`, {
+          await apiFetch(`/api/chapters/${ch.id}`, {
             method: "PATCH",
             body: JSON.stringify({ title: ch.title.trim(), content: ch.content.trim(), order_index: i }),
           });

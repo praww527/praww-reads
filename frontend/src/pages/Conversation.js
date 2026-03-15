@@ -59,14 +59,14 @@ export default function Conversation() {
 
       let recipKey = null;
       try {
-        const res = await apiFetch(`/users/${userId}/public-key`);
+        const res = await apiFetch(`/api/users/${userId}/public-key`);
         recipKey = await importPublicKey(res.public_key);
         setRecipientPublicKey(recipKey);
       } catch {
         setKeyError("no_recipient_key");
       }
 
-      const profile = await apiFetch(`/profile/${userId}`).catch(() => null);
+      const profile = await apiFetch(`/api/profile/${userId}`).catch(() => null);
       setOtherUser(profile);
 
       await loadMessages(pk);
@@ -81,7 +81,7 @@ export default function Conversation() {
 
   async function loadMessages(pk) {
     try {
-      const msgs = await apiFetch(`/dm/${userId}`);
+      const msgs = await apiFetch(`/api/dm/${userId}`);
       setMessages(msgs);
       decryptAll(msgs, pk || privateKey);
     } catch {}

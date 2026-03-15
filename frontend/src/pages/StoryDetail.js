@@ -74,9 +74,9 @@ export default function StoryDetail() {
   async function fetchAll() {
     try {
       const [s, chs, cmts] = await Promise.all([
-        apiFetch(`/stories/${id}`),
-        apiFetch(`/stories/${id}/chapters`),
-        apiFetch(`/stories/${id}/comments`),
+        apiFetch(`/api/stories/${id}`),
+        apiFetch(`/api/stories/${id}/chapters`),
+        apiFetch(`/api/stories/${id}/comments`),
       ]);
       setStory(s);
       setLikes({ count: s.like_count || 0, user_liked: s.user_liked || false });
@@ -94,7 +94,7 @@ export default function StoryDetail() {
       });
       setCommentLikes(initialLikes);
       if (isAuthenticated) {
-        const prog = await apiFetch(`/stories/${id}/progress`).catch(() => ({ progress: 0 }));
+        const prog = await apiFetch(`/api/stories/${id}/progress`).catch(() => ({ progress: 0 }));
         setProgress(prog.progress || 0);
       }
     } catch {
@@ -113,7 +113,7 @@ export default function StoryDetail() {
       if (total > 0) {
         const pct = Math.round((scrolled / total) * 100);
         setProgress(pct);
-        apiFetch(`/stories/${id}/progress`, { method: "POST", body: JSON.stringify({ progress: pct }) }).catch(() => {});
+        apiFetch(`/api/stories/${id}/progress`, { method: "POST", body: JSON.stringify({ progress: pct }) }).catch(() => {});
       }
     };
     el.addEventListener("scroll", handleScroll, { passive: true });
@@ -125,7 +125,7 @@ export default function StoryDetail() {
     if (liking) return;
     setLiking(true);
     try {
-      const res = await apiFetch(`/stories/${id}/like`, { method: "POST" });
+      const res = await apiFetch(`/api/stories/${id}/like`, { method: "POST" });
       setLikes({ count: res.count, user_liked: res.liked });
     } finally {
       setLiking(false);
@@ -134,7 +134,7 @@ export default function StoryDetail() {
 
   async function handleFavorite() {
     if (!isAuthenticated) { navigate("/login"); return; }
-    const res = await apiFetch(`/stories/${id}/favorite`, { method: "POST" });
+    const res = await apiFetch(`/api/stories/${id}/favorite`, { method: "POST" });
     setFavorited(res.favorited);
   }
 
@@ -144,7 +144,7 @@ export default function StoryDetail() {
     if (!comment.trim()) return;
     setSubmittingComment(true);
     try {
-      const newComment = await apiFetch(`/stories/${id}/comments`, { method: "POST", body: JSON.stringify({ content: comment }) });
+      const newComment = await apiFetch(`/api/stories/${id}/comments`, { method: "POST", body: JSON.stringify({ content: comment }) });
       setComments(prev => [...prev, newComment]);
       setCommentLikes(prev => ({ ...prev, [newComment.id]: { count: 0, liked: false } }));
       setComment("");
@@ -174,7 +174,7 @@ export default function StoryDetail() {
     setDonateSuccess("");
     setDonateError("");
     try {
-      const res = await apiFetch("/payfast/initiate-donation", {
+      const res = await apiFetch("/api/payfast/initiate-donation", {
         method: "POST",
         body: JSON.stringify({ story_id: id, amount }),
       });
@@ -190,7 +190,7 @@ export default function StoryDetail() {
     setPurchasing(true);
     setPurchaseError("");
     try {
-      const res = await apiFetch("/payfast/initiate-purchase", {
+      const res = await apiFetch("/api/payfast/initiate-purchase", {
         method: "POST",
         body: JSON.stringify({ story_id: id }),
       });
@@ -206,7 +206,7 @@ export default function StoryDetail() {
     setDeletingStory(true);
     setDeleteError("");
     try {
-      await apiFetch(`/stories/${id}`, { method: "DELETE" });
+      await apiFetch(`/api/stories/${id}`, { method: "DELETE" });
       navigate("/");
     } catch (err) {
       setDeleteError(err.message || "Failed to delete story");
@@ -224,7 +224,7 @@ export default function StoryDetail() {
     if (!editingCommentText.trim()) return;
     setSavingComment(true);
     try {
-      await apiFetch(`/stories/comments/${commentId}`, {
+      await apiFetch(`/api/stories/comments/${commentId}`, {
         method: "PATCH",
         body: JSON.stringify({ content: editingCommentText.trim() }),
       });
@@ -247,7 +247,7 @@ export default function StoryDetail() {
   async function handleDeleteComment(commentId) {
     setDeletingCommentId(commentId);
     try {
-      await apiFetch(`/stories/comments/${commentId}`, { method: "DELETE" });
+      await apiFetch(`/api/stories/comments/${commentId}`, { method: "DELETE" });
       setComments(prev =>
         prev
           .filter(c => c.id !== commentId)
@@ -265,7 +265,7 @@ export default function StoryDetail() {
     if (likingCommentId === commentId) return;
     setLikingCommentId(commentId);
     try {
-      const res = await apiFetch(`/stories/comments/${commentId}/like`, { method: "POST" });
+      const res = await apiFetch(`/api/stories/comments/${commentId}/like`, { method: "POST" });
       setCommentLikes(prev => ({ ...prev, [commentId]: { count: res.count, liked: res.liked } }));
     } finally {
       setLikingCommentId(null);

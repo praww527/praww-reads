@@ -93,7 +93,7 @@ export default function Marketplace() {
     const body = { ...form, price: parseFloat(form.price) };
     try {
       if (editingBook) {
-        const updated = await apiFetch(`/books/${editingBook.id}`, { method: "PATCH", body: JSON.stringify(body) });
+        const updated = await apiFetch(`/api/books/${editingBook.id}`, { method: "PATCH", body: JSON.stringify(body) });
         setBooks(bs => bs.map(b => b.id === updated.id ? updated : b));
       } else {
         const created = await apiFetch("/books", { method: "POST", body: JSON.stringify(body) });
@@ -107,13 +107,13 @@ export default function Marketplace() {
 
   async function handleDelete() {
     if (!deletingId) return;
-    await apiFetch(`/books/${deletingId}`, { method: "DELETE" });
+    await apiFetch(`/api/books/${deletingId}`, { method: "DELETE" });
     setBooks(bs => bs.filter(b => b.id !== deletingId));
     setDeletingId(null);
   }
 
   async function handleMarkSold(book) {
-    const updated = await apiFetch(`/books/${book.id}/sold`, { method: "POST" });
+    const updated = await apiFetch(`/api/books/${book.id}/sold`, { method: "POST" });
     setBooks(bs => bs.map(b => b.id === updated.id ? updated : b));
   }
 

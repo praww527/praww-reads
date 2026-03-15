@@ -34,7 +34,7 @@ export default function BookDetail() {
 
   async function fetchBook() {
     try {
-      const b = await apiFetch(`/books/${id}`);
+      const b = await apiFetch(`/api/books/${id}`);
       setBook(b);
     } catch {
       setBook(null);
@@ -45,7 +45,7 @@ export default function BookDetail() {
 
   async function fetchMessages() {
     try {
-      const msgs = await apiFetch(`/messages/book/${id}`);
+      const msgs = await apiFetch(`/api/messages/book/${id}`);
       setMessages(msgs);
     } catch { }
   }

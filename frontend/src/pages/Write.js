@@ -110,7 +110,7 @@ export default function Write() {
       });
       if (useChapters) {
         for (let i = 0; i < chapters.length; i++) {
-          await apiFetch(`/stories/${story.id}/chapters`, {
+          await apiFetch(`/api/stories/${story.id}/chapters`, {
             method: "POST",
             body: JSON.stringify({ title: chapters[i].title.trim(), content: chapters[i].content.trim(), order_index: i }),
           });
