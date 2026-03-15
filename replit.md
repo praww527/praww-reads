@@ -98,6 +98,16 @@ The build command installs Python dependencies. The pre-built React frontend (in
 
 > **Important**: Render's free tier spins down after inactivity. Upgrading to a paid plan keeps the server always-on.
 
+## Features Added (March 2026 — Round 3)
+
+- **AI ASSIST badge**: Stories with AI score 40–79 (possibly AI-assisted but not blocked) automatically get an `has_ai_assist` flag and `ai_score` field stored. A purple "AI ASSIST" badge is displayed on story cards (Home, Trending) and on the Story Detail page.
+- **100-likes milestone reward**: When a user's stories collectively reach 100 total likes for the first time, PRaww Reads automatically credits R100 to their wallet and sends a system notification congratulating them. Stored in `system_notifications` collection; flag `likes_milestone_100_awarded` on user prevents double-awarding.
+- **System notifications**: New `system_notifications` collection + `GET /notifications` + `PATCH /notifications/{id}/read` endpoints. The Messages page shows a "PRaww Reads" section at the top displaying all system notifications (trophy icon for milestones), with unread count badge.
+- **DM message swipe/tap edit & delete**: Conversation page now supports tapping a sent message to reveal Edit and Delete buttons. On mobile, swipe left to reveal. Editing is only allowed within 4 minutes of sending (re-encrypts message E2E). Deleting soft-deletes the message. New backend endpoints: `PATCH /dm/{msg_id}`, `DELETE /dm/{msg_id}`.
+- **Clear all conversation**: Trash button in conversation header clears all messages (soft-delete on backend). Requires confirmation. New backend endpoint: `DELETE /dm/conversation/{user_id}`.
+- **Share story**: Share button on every story card (home page) and on the Story Detail page. Uses native Web Share API on mobile, falls back to clipboard copy on desktop.
+- **Invite followers**: Own profile page has an "Invite" button that shares the profile URL with a join message (native share/clipboard). Other profiles have a "Share" button.
+
 ## Recent Features Added
 
 - **Story view tracking**: Every visit to a story is tracked in `story_views` (unique per user/IP). View counts shown on story cards (Home) and story detail page.

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { Heart, MessageSquare, BookOpen, ArrowLeft, Loader2, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck, Eye, Lock, Gift, Pencil, Trash2, Check, X, CreditCard } from "lucide-react";
+import { Heart, MessageSquare, BookOpen, ArrowLeft, Loader2, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck, Eye, Lock, Gift, Pencil, Trash2, Check, X, CreditCard, Bot, Share2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 const DONATION_AMOUNTS = [5, 10, 20, 50];
@@ -386,11 +386,18 @@ export default function StoryDetail() {
         )}
         <div className="flex items-start gap-3 mb-2">
           <h1 className="font-serif text-4xl font-bold flex-1">{story.title}</h1>
-          {isPaidStory && (
-            <span className="shrink-0 mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-3 py-1 text-sm font-semibold border border-amber-200 dark:border-amber-800">
-              <Lock className="h-3.5 w-3.5" /> R{story.price}
-            </span>
-          )}
+          <div className="flex flex-col items-end gap-1.5 shrink-0 mt-1">
+            {isPaidStory && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-3 py-1 text-sm font-semibold border border-amber-200 dark:border-amber-800">
+                <Lock className="h-3.5 w-3.5" /> R{story.price}
+              </span>
+            )}
+            {story.has_ai_assist && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 px-3 py-1 text-sm font-semibold border border-violet-200 dark:border-violet-800">
+                <Bot className="h-3.5 w-3.5" /> AI ASSIST
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-3 text-sm text-muted-foreground mb-4 flex-wrap">
           <div className="flex items-center gap-2">
@@ -473,6 +480,19 @@ export default function StoryDetail() {
               {favorited ? "Saved" : "Save"}
             </button>
           )}
+          <button
+            onClick={() => {
+              const url = `${window.location.origin}/stories/${id}`;
+              if (navigator.share) {
+                navigator.share({ title: story.title, text: story.description || `Read "${story.title}" on PRaww Reads`, url });
+              } else {
+                navigator.clipboard.writeText(url).then(() => alert("Link copied!")).catch(() => {});
+              }
+            }}
+            className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium border border-border hover:border-primary/40 hover:bg-primary/5 transition-all ml-auto"
+          >
+            <Share2 className="h-4 w-4" /> Share
+          </button>
         </div>
 
         {/* Reading Progress */}

@@ -1139,13 +1139,14 @@ async def get_story(story_id: str, request: Request, current_user: Optional[dict
     story["view_count"] = view_count
     return story
 
-def _run_ai_gate(text: str):
-    """Run AI check and raise 422 with score details if content is likely AI-generated (score >= 80)."""
+def _run_ai_gate(text: str) -> dict:
+    """Run AI check and raise 422 with score details if content is likely AI-generated (score >= 80).
+    Returns the AI analysis result dict (with score, verdict, etc.) when not blocked."""
     if not text or not text.strip():
-        return
+        return {"score": 0, "verdict": "too_short", "indicators": [], "word_count": 0}
     result = _analyze_ai_content(text)
     if result["verdict"] == "too_short":
-        return
+        return result
     if result["score"] >= 80:
         raise HTTPException(
             status_code=422,
@@ -1157,6 +1158,19 @@ def _run_ai_gate(text: str):
                 "indicators": result["indicators"],
             },
         )
+    return result
+
+async def _create_system_notification(user_id: str, notif_type: str, title: str, message: str):
+    """Insert a system notification for the given user."""
+    await db.system_notifications.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "type": notif_type,
+        "title": title,
+        "message": message,
+        "is_read": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
 
 @api_router.post("/stories")
 async def create_story(data: CreateStoryInput, current_user: dict = Depends(get_current_user)):
@@ -1170,8 +1184,12 @@ async def create_story(data: CreateStoryInput, current_user: dict = Depends(get_
         raise HTTPException(400, "Story content is too long (max 500,000 characters)")
     if data.is_paid and (not data.price or data.price < 5 or data.price > 9999):
         raise HTTPException(400, "Paid story price must be between R5 and R9999")
+    ai_score = 0
+    has_ai_assist = False
     if data.content:
-        _run_ai_gate(data.content)
+        ai_result = _run_ai_gate(data.content)
+        ai_score = ai_result.get("score", 0)
+        has_ai_assist = ai_score >= 40
     story_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     story = {
@@ -1185,6 +1203,8 @@ async def create_story(data: CreateStoryInput, current_user: dict = Depends(get_
         "price": data.price or 0.0,
         "total_donations": 0.0,
         "total_sales": 0,
+        "has_ai_assist": has_ai_assist,
+        "ai_score": ai_score,
         "created_at": now,
         "updated_at": now,
     }
@@ -1197,9 +1217,13 @@ async def update_story(story_id: str, data: UpdateStoryInput, current_user: dict
     story = await db.stories.find_one({"id": story_id, "author_id": current_user["id"]})
     if not story:
         raise HTTPException(403, "Story not found or unauthorized")
+    ai_updates = {}
     if data.content:
-        _run_ai_gate(data.content)
+        ai_result = _run_ai_gate(data.content)
+        ai_updates["ai_score"] = ai_result.get("score", 0)
+        ai_updates["has_ai_assist"] = ai_updates["ai_score"] >= 40
     updates = {k: v for k, v in data.model_dump().items() if v is not None}
+    updates.update(ai_updates)
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.stories.update_one({"id": story_id}, {"$set": updates})
     updated = await db.stories.find_one({"id": story_id}, {"_id": 0})
@@ -1500,6 +1524,31 @@ async def toggle_story_like(story_id: str, current_user: dict = Depends(get_curr
                 f"{liker_name} liked your story \"{story.get('title', 'Untitled')}\"",
                 f"/stories/{story_id}",
             ))
+        if story:
+            author_id = story["author_id"]
+            author = await db.users.find_one({"id": author_id}, {"_id": 0, "likes_milestone_100_awarded": 1})
+            if author and not author.get("likes_milestone_100_awarded"):
+                author_story_ids = [s["id"] async for s in db.stories.find({"author_id": author_id}, {"id": 1})]
+                total_author_likes = await db.story_likes.count_documents({"story_id": {"$in": author_story_ids}})
+                if total_author_likes >= 100:
+                    await db.users.update_one({"id": author_id}, {"$set": {"likes_milestone_100_awarded": True}})
+                    await db.users.update_one({"id": author_id}, {"$inc": {"wallet_balance": 100.0, "total_earnings": 100.0}})
+                    await db.platform_revenue.insert_one({
+                        "id": str(uuid.uuid4()), "type": "milestone_reward", "amount": -100.0,
+                        "user_id": author_id, "created_at": datetime.now(timezone.utc).isoformat()
+                    })
+                    asyncio.create_task(_create_system_notification(
+                        author_id,
+                        "milestone_100_likes",
+                        "You've reached 100 likes!",
+                        "Congratulations! Your stories have received 100 likes. As the first milestone achiever, PRaww Reads is rewarding you with R100 added to your wallet. Keep writing — your community loves your work!"
+                    ))
+                    asyncio.create_task(send_push_notification(
+                        author_id,
+                        "Congratulations from PRaww Reads!",
+                        "Your stories have reached 100 likes! R100 has been added to your wallet.",
+                        "/messages",
+                    ))
     return {"liked": liked, "count": count}
 
 # Story Favorites
@@ -2234,7 +2283,69 @@ async def get_dm_conversation(user_id: str, current_user: dict = Depends(get_cur
         {"sender_id": user_id, "receiver_id": uid, "is_read": False},
         {"$set": {"is_read": True}}
     )
-    return msgs
+    return [m for m in msgs if not m.get("deleted")]
+
+class EditDMInput(BaseModel):
+    receiver_encrypted: dict
+    sender_encrypted: dict
+
+@api_router.patch("/dm/{msg_id}")
+async def edit_dm_message(msg_id: str, data: EditDMInput, current_user: dict = Depends(get_current_user)):
+    msg = await db.direct_messages.find_one({"id": msg_id, "sender_id": current_user["id"]}, {"_id": 0})
+    if not msg:
+        raise HTTPException(404, "Message not found or unauthorized")
+    created = datetime.fromisoformat(msg["created_at"].replace("Z", "+00:00"))
+    if (datetime.now(timezone.utc) - created).total_seconds() > 240:
+        raise HTTPException(403, "Messages can only be edited within 4 minutes of sending")
+    await db.direct_messages.update_one(
+        {"id": msg_id},
+        {"$set": {
+            "receiver_encrypted": data.receiver_encrypted,
+            "sender_encrypted": data.sender_encrypted,
+            "edited_at": datetime.now(timezone.utc).isoformat(),
+        }}
+    )
+    updated = await db.direct_messages.find_one({"id": msg_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/dm/{msg_id}")
+async def delete_dm_message(msg_id: str, current_user: dict = Depends(get_current_user)):
+    msg = await db.direct_messages.find_one({"id": msg_id}, {"_id": 0, "sender_id": 1, "receiver_id": 1})
+    if not msg:
+        raise HTTPException(404, "Message not found")
+    if msg["sender_id"] != current_user["id"] and msg["receiver_id"] != current_user["id"]:
+        raise HTTPException(403, "Unauthorized")
+    await db.direct_messages.update_one({"id": msg_id}, {"$set": {"deleted": True, "deleted_at": datetime.now(timezone.utc).isoformat()}})
+    return {"deleted": True}
+
+@api_router.delete("/dm/conversation/{user_id}")
+async def clear_dm_conversation(user_id: str, current_user: dict = Depends(get_current_user)):
+    uid = current_user["id"]
+    await db.direct_messages.update_many(
+        {"$or": [
+            {"sender_id": uid, "receiver_id": user_id},
+            {"sender_id": user_id, "receiver_id": uid},
+        ]},
+        {"$set": {"deleted": True, "deleted_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"cleared": True}
+
+# ── System Notifications ──────────────────────────────────────────────────────
+@api_router.get("/notifications")
+async def get_notifications(current_user: dict = Depends(get_current_user)):
+    notifs = await db.system_notifications.find(
+        {"user_id": current_user["id"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    return notifs
+
+@api_router.patch("/notifications/{notif_id}/read")
+async def mark_notification_read(notif_id: str, current_user: dict = Depends(get_current_user)):
+    await db.system_notifications.update_one(
+        {"id": notif_id, "user_id": current_user["id"]},
+        {"$set": {"is_read": True}}
+    )
+    return {"ok": True}
 
 # ── Health ───────────────────────────────────────────────────────────────────
 # ── Push Notification Endpoints ──────────────────────────────────────────────

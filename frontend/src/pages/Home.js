@@ -2,8 +2,19 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { BookOpen, Heart, TrendingUp, Loader2, Eye, Lock } from "lucide-react";
+import { BookOpen, Heart, TrendingUp, Loader2, Eye, Lock, Bot, Share2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+
+function shareStory(story, e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const url = `${window.location.origin}/stories/${story.id}`;
+  if (navigator.share) {
+    navigator.share({ title: story.title, text: story.description || `Read "${story.title}" on PRaww Reads`, url });
+  } else {
+    navigator.clipboard.writeText(url).then(() => alert("Link copied!")).catch(() => {});
+  }
+}
 
 export default function Home() {
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -150,7 +161,7 @@ export default function Home() {
 
 function StoryCard({ story }) {
   return (
-    <Link to={`/stories/${story.id}`} className="group flex flex-col glass-card glass-shimmer hover:border-primary/40 transition-all overflow-hidden">
+    <Link to={`/stories/${story.id}`} className="group flex flex-col glass-card glass-shimmer hover:border-primary/40 transition-all overflow-hidden relative">
       {story.cover_image_url ? (
         <div className="aspect-video overflow-hidden">
           <img src={story.cover_image_url} alt={story.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -163,11 +174,18 @@ function StoryCard({ story }) {
       <div className="p-4 flex flex-col flex-1">
         <div className="flex items-start justify-between gap-2 mb-1">
           <h3 className="font-serif font-bold text-base leading-tight group-hover:text-primary transition-colors line-clamp-2">{story.title}</h3>
-          {story.is_paid && (
-            <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 text-xs font-semibold border border-amber-200 dark:border-amber-800">
-              <Lock className="h-3 w-3" /> R{story.price}
-            </span>
-          )}
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            {story.is_paid && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 text-xs font-semibold border border-amber-200 dark:border-amber-800">
+                <Lock className="h-3 w-3" /> R{story.price}
+              </span>
+            )}
+            {story.has_ai_assist && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 px-2 py-0.5 text-xs font-semibold border border-violet-200 dark:border-violet-800">
+                <Bot className="h-3 w-3" /> AI ASSIST
+              </span>
+            )}
+          </div>
         </div>
         <p className="text-xs text-muted-foreground mb-3">by {story.author_name}</p>
         {story.description && (
@@ -177,6 +195,13 @@ function StoryCard({ story }) {
           <span className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{story.like_count || 0}</span>
           <span className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{story.view_count || 0}</span>
           {story.created_at && <span className="ml-auto">{formatDistanceToNow(new Date(story.created_at))} ago</span>}
+          <button
+            onClick={(e) => shareStory(story, e)}
+            className="p-1 rounded-full hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+            title="Share story"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     </Link>
@@ -207,11 +232,18 @@ function GuestStoryCard({ story }) {
       <div className="p-4 flex flex-col flex-1">
         <div className="flex items-start justify-between gap-2 mb-1">
           <h3 className="font-serif font-bold text-base leading-tight group-hover:text-primary transition-colors line-clamp-2">{story.title}</h3>
-          {story.is_paid && (
-            <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 text-xs font-semibold border border-amber-200 dark:border-amber-800">
-              <Lock className="h-3 w-3" /> R{story.price}
-            </span>
-          )}
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            {story.is_paid && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 text-xs font-semibold border border-amber-200 dark:border-amber-800">
+                <Lock className="h-3 w-3" /> R{story.price}
+              </span>
+            )}
+            {story.has_ai_assist && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 px-2 py-0.5 text-xs font-semibold border border-violet-200 dark:border-violet-800">
+                <Bot className="h-3 w-3" /> AI ASSIST
+              </span>
+            )}
+          </div>
         </div>
         <p className="text-xs text-muted-foreground mb-2">by {story.author_name}</p>
         {story.description && (

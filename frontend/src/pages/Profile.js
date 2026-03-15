@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { ArrowLeft, BookOpen, Pencil, Loader2, Users, Camera, X, Check, BadgeCheck, Lock, MessageCircle, AlertCircle, Heart, ShoppingBag, Settings2, LogOut, ChevronRight } from "lucide-react";
+import { ArrowLeft, BookOpen, Pencil, Loader2, Users, Camera, X, Check, BadgeCheck, Lock, MessageCircle, AlertCircle, Heart, ShoppingBag, Settings2, LogOut, ChevronRight, Share2, UserPlus } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 async function resizeImage(file, maxBytes = 2 * 1024 * 1024) {
@@ -199,6 +199,20 @@ export default function Profile() {
                       className="inline-flex items-center gap-1.5 text-sm rounded-lg border border-border px-3 py-1.5 hover:bg-muted transition-colors">
                       <Pencil className="h-3.5 w-3.5" /> Edit Profile
                     </button>
+                    <button
+                      onClick={() => {
+                        const url = `${window.location.origin}/profile/${profile.id}`;
+                        const msg = `Join me on PRaww Reads — a community for readers and writers! Check out my profile: ${url}`;
+                        if (navigator.share) {
+                          navigator.share({ title: "Join me on PRaww Reads!", text: msg, url });
+                        } else {
+                          navigator.clipboard.writeText(msg).then(() => alert("Invite link copied!")).catch(() => {});
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 text-sm rounded-lg bg-primary text-primary-foreground px-3 py-1.5 hover:bg-primary/90 transition-colors font-medium"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" /> Invite
+                    </button>
                   </>
                 ) : me && (
                   <>
@@ -213,6 +227,19 @@ export default function Profile() {
                     >
                       <MessageCircle className="h-3.5 w-3.5" /> Message
                     </Link>
+                    <button
+                      onClick={() => {
+                        const url = `${window.location.origin}/profile/${profile.id}`;
+                        if (navigator.share) {
+                          navigator.share({ title: `${profile.first_name || profile.username} on PRaww Reads`, text: `Check out ${profile.first_name || profile.username}'s profile on PRaww Reads!`, url });
+                        } else {
+                          navigator.clipboard.writeText(url).then(() => alert("Profile link copied!")).catch(() => {});
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 text-sm rounded-lg border border-border px-4 py-1.5 hover:bg-muted transition-colors font-medium"
+                    >
+                      <Share2 className="h-3.5 w-3.5" /> Share
+                    </button>
                   </>
                 )}
               </div>

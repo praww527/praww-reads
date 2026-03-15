@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { Lock, Loader2, MessageCircle, ShieldCheck, ShoppingBag, ArrowRight } from "lucide-react";
+import { Lock, Loader2, MessageCircle, ShieldCheck, ShoppingBag, ArrowRight, Bell, Trophy } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default function Messages() {
@@ -10,6 +10,7 @@ export default function Messages() {
   const navigate = useNavigate();
   const [conversations, setConversations] = useState([]);
   const [marketplaceThreads, setMarketplaceThreads] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,12 +19,19 @@ export default function Messages() {
       Promise.all([
         apiFetch("/dm/conversations").catch(() => []),
         apiFetch("/messages/inbox").catch(() => []),
-      ]).then(([dms, mkt]) => {
+        apiFetch("/notifications").catch(() => []),
+      ]).then(([dms, mkt, notifs]) => {
         setConversations(dms);
         setMarketplaceThreads(mkt);
+        setNotifications(notifs);
       }).finally(() => setLoading(false));
     }
   }, [authLoading, isAuthenticated]);
+
+  async function markNotifRead(id) {
+    await apiFetch(`/notifications/${id}/read`, { method: "PATCH" }).catch(() => {});
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+  }
 
   if (authLoading || loading) return (
     <div className="flex justify-center py-32">
@@ -33,7 +41,8 @@ export default function Messages() {
 
   const totalUnreadDM = conversations.reduce((s, c) => s + (c.unread || 0), 0);
   const totalUnreadMkt = marketplaceThreads.reduce((s, t) => s + (t.unread || 0), 0);
-  const totalUnread = totalUnreadDM + totalUnreadMkt;
+  const totalUnreadNotifs = notifications.filter(n => !n.is_read).length;
+  const totalUnread = totalUnreadDM + totalUnreadMkt + totalUnreadNotifs;
 
   return (
     <div className="container mx-auto max-w-2xl px-4 py-10">
@@ -56,24 +65,61 @@ export default function Messages() {
 
       <div className="space-y-2">
 
+        {/* PRaww Reads System Notifications */}
+        {notifications.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <Bell className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">PRaww Reads</span>
+              {totalUnreadNotifs > 0 && (
+                <span className="bg-primary text-primary-foreground text-xs font-bold px-1.5 py-0.5 rounded-full">{totalUnreadNotifs}</span>
+              )}
+            </div>
+            <div className="space-y-2">
+              {notifications.map(notif => (
+                <div
+                  key={notif.id}
+                  onClick={() => !notif.is_read && markNotifRead(notif.id)}
+                  className={`flex items-start gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${notif.is_read ? "border-border/40 bg-card opacity-80" : "border-primary/30 bg-primary/5 shadow-sm"}`}
+                >
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    {notif.type === "milestone_100_likes" ? (
+                      <Trophy className="h-5 w-5 text-primary" />
+                    ) : (
+                      <Bell className="h-5 w-5 text-primary" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-sm ${notif.is_read ? "font-medium" : "font-bold"}`}>{notif.title}</span>
+                      {!notif.is_read && <span className="w-2 h-2 rounded-full bg-primary shrink-0" />}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{notif.message}</p>
+                    {notif.created_at && (
+                      <p className="text-xs text-muted-foreground/60 mt-1">{formatDistanceToNow(new Date(notif.created_at))} ago</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Marketplace Group Row — always shown first */}
         <Link
           to="/marketplace/messages"
           className="flex items-center gap-4 p-4 glass-row cursor-pointer group"
         >
-          {/* Group avatar */}
           <div className="relative shrink-0">
             <div className="w-11 h-11 rounded-2xl bg-emerald-100 flex items-center justify-center border border-emerald-200/70 shadow-sm">
               <ShoppingBag className="h-5 w-5 text-emerald-600" />
             </div>
-            {/* Small "group" indicator dots */}
             <div className="absolute -bottom-1 -right-1 flex -space-x-1">
               <div className="w-3.5 h-3.5 rounded-full bg-blue-400 border border-white" />
               <div className="w-3.5 h-3.5 rounded-full bg-purple-400 border border-white" />
             </div>
           </div>
 
-          {/* Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <span className={`text-sm ${totalUnreadMkt > 0 ? "font-bold" : "font-semibold"}`}>
