@@ -31,43 +31,70 @@ export default function BottomNav() {
       : location.pathname === path || location.pathname.startsWith(path + "/");
 
   const tabs = [
-    { to: "/",           label: "Stories",   Icon: BookOpen },
-    { to: "/messages",   label: "Messages",  Icon: MessageCircle, badge: unread },
-    { to: "/write",      label: "Write",     Icon: PenLine },
-    { to: "/profile/me", label: "Profile",   Icon: User },
+    { to: "/",           label: "Stories",  Icon: BookOpen },
+    { to: "/messages",   label: "Messages", Icon: MessageCircle, badge: unread },
+    { to: "/write",      label: "Write",    Icon: PenLine },
+    { to: "/profile/me", label: "Profile",  Icon: User },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background/95 backdrop-blur-lg border-t border-border/60 supports-[backdrop-filter]:bg-background/80">
-      <div className="flex items-stretch h-16">
-        {tabs.map(({ to, label, Icon, badge }) => {
-          const active = isActive(to);
-          return (
-            <Link
-              key={to}
-              to={to}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-colors ${
-                active ? "text-primary" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <span className="relative">
-                <Icon className={`h-5 w-5 transition-transform ${active ? "scale-110" : ""}`} strokeWidth={active ? 2.5 : 2} />
-                {badge > 0 && (
-                  <span className="absolute -top-1 -right-1.5 min-w-[15px] h-[15px] rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center px-0.5 leading-none">
-                    {badge > 9 ? "9+" : badge}
-                  </span>
+    <div
+      className="fixed bottom-0 left-0 right-0 z-50 md:hidden flex justify-center"
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
+    >
+      <nav
+        className="w-[calc(100%-32px)] max-w-[400px]"
+        style={{
+          borderRadius: "32px",
+          background: "rgba(var(--glass-bg, 255 255 255) / 0.20)",
+          backdropFilter: "blur(28px) saturate(200%) brightness(1.08)",
+          WebkitBackdropFilter: "blur(28px) saturate(200%) brightness(1.08)",
+          border: "1px solid rgba(255, 255, 255, 0.50)",
+          boxShadow:
+            "0 12px 40px rgba(0,0,0,0.16), 0 2px 8px rgba(0,0,0,0.06), inset 0 1.5px 0 rgba(255,255,255,0.65), inset 0 -1px 0 rgba(255,255,255,0.12)",
+        }}
+      >
+        <div className="flex items-stretch h-[62px] px-1.5">
+          {tabs.map(({ to, label, Icon, badge }) => {
+            const active = isActive(to);
+            return (
+              <Link
+                key={to}
+                to={to}
+                className="flex-1 flex flex-col items-center justify-center gap-[3px] relative transition-all duration-200"
+                style={{ borderRadius: "26px" }}
+              >
+                {active && (
+                  <span
+                    className="absolute inset-[3px]"
+                    style={{
+                      borderRadius: "22px",
+                      background: "rgba(255,255,255,0.32)",
+                      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 4px rgba(0,0,0,0.06)",
+                    }}
+                  />
                 )}
-              </span>
-              <span className={`text-[10px] font-medium leading-none ${active ? "text-primary" : ""}`}>{label}</span>
-              {active && (
-                <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full bg-primary" />
-              )}
-            </Link>
-          );
-        })}
-      </div>
-      {/* Safe area for devices with home indicator */}
-      <div className="h-safe-bottom bg-background/95" style={{ height: "env(safe-area-inset-bottom, 0px)" }} />
-    </nav>
+                <span className="relative z-10 flex flex-col items-center gap-[3px]">
+                  <span className="relative">
+                    <Icon
+                      className={`h-[22px] w-[22px] transition-all duration-200 ${active ? "text-primary scale-110" : "text-foreground/40"}`}
+                      strokeWidth={active ? 2.4 : 1.8}
+                    />
+                    {badge > 0 && (
+                      <span className="absolute -top-1 -right-1.5 min-w-[15px] h-[15px] rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center px-0.5 leading-none">
+                        {badge > 9 ? "9+" : badge}
+                      </span>
+                    )}
+                  </span>
+                  <span className={`text-[10px] font-semibold leading-none tracking-tight transition-colors duration-200 ${active ? "text-primary" : "text-foreground/40"}`}>
+                    {label}
+                  </span>
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </div>
   );
 }

@@ -61,7 +61,7 @@ export default function Navbar() {
     ? `${user.first_name} ${user.last_name}`
     : user?.username || user?.email || "Account";
 
-  const navLinks = [
+  const desktopNavLinks = [
     { to: "/", label: "Home" },
     { to: "/marketplace", label: "Marketplace", auth: true },
     { to: "/favorites", label: "Favorites", auth: true },
@@ -72,15 +72,16 @@ export default function Navbar() {
     <nav className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur-lg supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
+
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group shrink-0">
             <BookOpen className="h-7 w-7 text-primary group-hover:-rotate-12 transition-transform duration-300" />
             <span className="font-serif text-2xl font-bold tracking-tight text-primary">PRaww Reads</span>
           </Link>
 
-          {/* Desktop Nav */}
+          {/* Desktop Nav links */}
           <div className="hidden md:flex items-center gap-8">
-            {navLinks.filter(l => !l.auth || isAuthenticated).map(l => (
+            {desktopNavLinks.filter(l => !l.auth || isAuthenticated).map(l => (
               <Link key={l.to} to={l.to}
                 className={`text-sm font-medium transition-colors hover:text-primary ${isActive(l.to) ? "text-primary" : "text-muted-foreground"}`}>
                 {l.label}
@@ -90,36 +91,66 @@ export default function Navbar() {
 
           {/* Right section */}
           <div className="flex items-center gap-2">
-            {/* Desktop search — authenticated only */}
+
+            {/* Search — desktop always, mobile only when authenticated */}
             {isAuthenticated && (
-              <div className="hidden sm:flex items-center">
-                {searchOpen ? (
-                  <form onSubmit={handleSearchSubmit} className="flex items-center gap-1">
-                    <input
-                      ref={searchInputRef}
-                      type="text"
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      placeholder="Search..."
-                      className="w-48 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                    <button type="submit" className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-primary">
-                      <Search className="h-4 w-4" />
+              <>
+                {/* Desktop search */}
+                <div className="hidden sm:flex items-center">
+                  {searchOpen ? (
+                    <form onSubmit={handleSearchSubmit} className="flex items-center gap-1">
+                      <input
+                        ref={searchInputRef}
+                        type="text"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        placeholder="Search..."
+                        className="w-48 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <button type="submit" className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-primary">
+                        <Search className="h-4 w-4" />
+                      </button>
+                      <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+                        className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </form>
+                  ) : (
+                    <button onClick={() => setSearchOpen(true)}
+                      className={`p-2 rounded-full hover:bg-muted transition-colors ${isActive("/search") ? "text-primary" : "text-muted-foreground"}`}>
+                      <Search className="h-5 w-5" />
                     </button>
-                    <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
-                      className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground">
-                      <X className="h-4 w-4" />
+                  )}
+                </div>
+
+                {/* Mobile search icon (bottom nav handles navigation, this just provides search) */}
+                <div className="flex sm:hidden">
+                  {searchOpen ? (
+                    <form onSubmit={handleSearchSubmit} className="flex items-center gap-1">
+                      <input
+                        ref={searchInputRef}
+                        type="text"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        placeholder="Search..."
+                        className="w-36 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+                        className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </form>
+                  ) : (
+                    <button onClick={() => setSearchOpen(true)}
+                      className={`p-2 rounded-full hover:bg-muted transition-colors ${isActive("/search") ? "text-primary" : "text-muted-foreground"}`}>
+                      <Search className="h-5 w-5" />
                     </button>
-                  </form>
-                ) : (
-                  <button onClick={() => setSearchOpen(true)}
-                    className={`p-2 rounded-full hover:bg-muted transition-colors ${isActive("/search") ? "text-primary" : "text-muted-foreground"}`}>
-                    <Search className="h-5 w-5" />
-                  </button>
-                )}
-              </div>
+                  )}
+                </div>
+              </>
             )}
 
+            {/* Desktop: messages + user menu */}
             {isAuthenticated ? (
               <div className="hidden sm:flex items-center gap-2">
                 <Link to="/messages" className={`relative p-2 rounded-full hover:bg-muted transition-colors ${isActive("/messages") ? "text-primary" : "text-muted-foreground"}`}>
@@ -163,78 +194,22 @@ export default function Navbar() {
                 </div>
               </div>
             ) : (
-              <div className="hidden sm:flex items-center gap-2">
+              /* Not authenticated — show login/signup on both mobile and desktop */
+              <div className="flex items-center gap-2">
                 <Link to="/login" data-testid="login-nav-btn"
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:bg-muted transition-colors">
+                  className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold hover:bg-muted transition-colors">
                   Log In
                 </Link>
                 <Link to="/register"
-                  className="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold hover:bg-primary/90 transition-colors">
+                  className="rounded-lg bg-primary text-primary-foreground px-3 py-1.5 text-sm font-semibold hover:bg-primary/90 transition-colors">
                   Sign Up
                 </Link>
               </div>
             )}
 
-            {/* Mobile Menu Toggle */}
-            <button data-testid="mobile-menu-btn" onClick={() => setMobileOpen(v => !v)} className="md:hidden p-2 rounded-lg hover:bg-muted transition-colors">
-              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
           </div>
         </div>
       </div>
-
-      {/* Mobile Menu */}
-      {mobileOpen && (
-        <div className="md:hidden border-t border-border bg-background px-4 pb-4 pt-2">
-          {isAuthenticated && (
-            <form
-              onSubmit={handleSearchSubmit}
-              onClick={e => e.stopPropagation()}
-              className="relative mb-3"
-            >
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onClick={e => e.stopPropagation()}
-                placeholder="Search..."
-                className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </form>
-          )}
-
-          <div className="space-y-1 mb-3">
-            {navLinks.filter(l => !l.auth || isAuthenticated).map(l => (
-              <Link key={l.to} to={l.to}
-                className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive(l.to) ? "text-primary bg-primary/5" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"}`}>
-                {l.label}
-              </Link>
-            ))}
-          </div>
-
-          {isAuthenticated ? (
-            <div className="border-t border-border pt-3 space-y-1">
-              <Link to="/messages" className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">
-                <span>Messages</span>
-                {totalUnread > 0 && <span className="bg-primary text-primary-foreground text-xs font-bold px-1.5 py-0.5 rounded-full">{totalUnread}</span>}
-              </Link>
-              <Link to="/profile/me" className="block px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">Profile</Link>
-              <Link to="/settings" className="block px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">Settings</Link>
-              <button onClick={handleLogout} className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/5">Log Out</button>
-            </div>
-          ) : (
-            <div className="flex gap-2 mt-3">
-              <Link to="/login" className="flex-1 text-center rounded-lg border border-border py-2.5 text-sm font-semibold hover:bg-muted transition-colors">
-                Log In
-              </Link>
-              <Link to="/register" className="flex-1 text-center rounded-lg bg-primary text-primary-foreground py-2.5 text-sm font-semibold hover:bg-primary/90 transition-colors">
-                Sign Up
-              </Link>
-            </div>
-          )}
-        </div>
-      )}
     </nav>
   );
 }
