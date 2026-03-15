@@ -266,7 +266,7 @@ export default function EditStory() {
                 <span className="text-sm text-muted-foreground">Custom:</span>
                 <div className="flex items-center gap-1">
                   <span className="text-sm font-medium text-muted-foreground">R</span>
-                  <input type="number" min="5" max="999" value={price} onChange={e => setPrice(Number(e.target.value))}
+                  <input type="number" min="5" max="9999" value={price} onChange={e => setPrice(Number(e.target.value))}
                     className="w-24 rounded-lg border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
               </div>

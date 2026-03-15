@@ -48,6 +48,7 @@ export default function Marketplace() {
   const fileRef = useRef(null);
 
   const [form, setForm] = useState({ title: "", author: "", price: "", condition: "good", allow_swap: false, swap_for: "", image_url: "" });
+  const [formError, setFormError] = useState("");
 
   useEffect(() => { fetchBooks(); }, []);
 
@@ -65,6 +66,7 @@ export default function Marketplace() {
     setEditingBook(null);
     setForm({ title: "", author: "", price: "", condition: "good", allow_swap: false, swap_for: "", image_url: "" });
     setImagePreview(null);
+    setFormError("");
     setShowForm(true);
   }
 
@@ -72,6 +74,7 @@ export default function Marketplace() {
     setEditingBook(book);
     setForm({ title: book.title, author: book.author || "", price: String(book.price), condition: book.condition, allow_swap: book.allow_swap, swap_for: book.swap_for || "", image_url: book.image_url || "" });
     setImagePreview(book.image_url || null);
+    setFormError("");
     setShowForm(true);
   }
 
@@ -90,6 +93,7 @@ export default function Marketplace() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    setFormError("");
     const body = { ...form, price: parseFloat(form.price) };
     try {
       if (editingBook) {
@@ -101,7 +105,7 @@ export default function Marketplace() {
       }
       setShowForm(false);
     } catch (err) {
-      alert(err.message);
+      setFormError(err.message || "Something went wrong. Please try again.");
     }
   }
 
@@ -273,6 +277,11 @@ export default function Marketplace() {
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
                 )}
               </div>
+              {formError && (
+                <div className="rounded-lg bg-destructive/10 border border-destructive/20 text-destructive px-3 py-2.5 text-sm">
+                  {formError}
+                </div>
+              )}
               <button type="submit" className="w-full rounded-xl bg-primary text-primary-foreground font-semibold py-3 hover:bg-primary/90 transition-colors">
                 {editingBook ? "Update Book" : "List Book on Marketplace"}
               </button>
