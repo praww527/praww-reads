@@ -15,6 +15,7 @@ import Messages from "./pages/Messages";
 import Conversation from "./pages/Conversation";
 import Profile from "./pages/Profile";
 import Favorites from "./pages/Favorites";
+import MarketplaceMessages from "./pages/MarketplaceMessages";
 import SearchPage from "./pages/Search";
 import Settings from "./pages/Settings";
 import Earnings from "./pages/Earnings";
@@ -55,6 +56,7 @@ function AppShell() {
           <Route path="/stories/:id/add-chapter" element={<PrivateRoute><AddChapter /></PrivateRoute>} />
           <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
           <Route path="/messages/:userId" element={<PrivateRoute><Conversation /></PrivateRoute>} />
+          <Route path="/marketplace/messages" element={<PrivateRoute><MarketplaceMessages /></PrivateRoute>} />
           <Route path="/write" element={<PrivateRoute><Write /></PrivateRoute>} />
           <Route path="/profile" element={<Navigate to="/profile/me" replace />} />
           <Route path="/profile/:userId" element={<PrivateRoute><Profile /></PrivateRoute>} />
