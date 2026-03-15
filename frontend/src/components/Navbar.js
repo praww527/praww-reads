@@ -69,7 +69,7 @@ export default function Navbar() {
   ];
 
   return (
-    <nav className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur-lg supports-[backdrop-filter]:bg-background/60">
+    <nav className="sticky top-0 z-40 w-full glass-nav">
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
 
@@ -177,7 +177,7 @@ export default function Navbar() {
                     <span className="text-sm font-medium max-w-[120px] truncate">{displayName}</span>
                   </button>
                   {dropdownOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-52 bg-background rounded-xl border border-border shadow-xl z-50 overflow-hidden" onClick={() => setDropdownOpen(false)}>
+                    <div className="absolute right-0 top-full mt-2 w-52 glass-panel z-50 overflow-hidden" onClick={() => setDropdownOpen(false)}>
                       <Link to="/profile/me" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors">
                         <User className="h-4 w-4 text-muted-foreground" /> My Profile
                       </Link>

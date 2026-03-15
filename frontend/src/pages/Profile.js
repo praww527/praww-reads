@@ -155,7 +155,7 @@ export default function Profile() {
       </Link>
 
       {/* Profile Header */}
-      <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 mb-8 shadow-sm">
+      <div className="glass-card p-6 sm:p-8 mb-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
           {/* Avatar */}
           <div className="relative shrink-0 group">
@@ -238,7 +238,7 @@ export default function Profile() {
 
       {/* Account Quick Links — own profile only */}
       {isOwnProfile && (
-        <div className="bg-card border border-border rounded-2xl mb-8 shadow-sm overflow-hidden">
+        <div className="glass-card mb-8 overflow-hidden">
           <h2 className="font-serif text-base font-bold px-6 pt-5 pb-3 text-muted-foreground uppercase tracking-wide text-xs">Account</h2>
           <nav className="divide-y divide-border">
             <Link to="/favorites" className="flex items-center justify-between px-6 py-4 hover:bg-muted/50 transition-colors group">
@@ -312,7 +312,7 @@ export default function Profile() {
       {/* Edit Profile Dialog */}
       {editOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-background rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto p-6">
+          <div className="w-full max-w-md glass-panel max-h-[90vh] overflow-y-auto p-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-serif text-xl font-bold">Edit Profile</h2>
               <button onClick={() => { setEditOpen(false); setSaveError(""); }} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>

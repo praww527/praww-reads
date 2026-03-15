@@ -162,7 +162,7 @@ export default function RegisterPage() {
         <p className="text-muted-foreground text-sm">Join a world of stories — create your free account.</p>
       </div>
 
-      <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-xl p-6 sm:p-8">
+      <div className="w-full max-w-md glass-panel p-6 sm:p-8">
         {verifyStep ? (
           <form onSubmit={handleVerify} className="space-y-5" noValidate>
             <div className="text-center space-y-2">

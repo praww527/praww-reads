@@ -9,7 +9,6 @@
     --font-sans: 'Inter', sans-serif;
     --font-serif: 'Playfair Display', serif;
 
-    /* Elegant Light Theme - Creamy backgrounds, rich dark typography */
     --background: 45 29% 97%;
     --foreground: 0 0% 10%;
 
@@ -19,7 +18,6 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 10%;
 
-    /* Deep literary blue/slate */
     --primary: 215 28% 17%;
     --primary-foreground: 0 0% 98%;
 
@@ -43,7 +41,6 @@
   }
 
   .dark {
-    /* Sophisticated Dark Theme - Midnight slate and soft gold */
     --background: 220 15% 10%;
     --foreground: 0 0% 95%;
 
@@ -53,7 +50,6 @@
     --popover: 220 15% 12%;
     --popover-foreground: 0 0% 95%;
 
-    /* Soft gold accent */
     --primary: 46 65% 52%;
     --primary-foreground: 220 15% 10%;
 
@@ -79,52 +75,165 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
+    background-image:
+      radial-gradient(ellipse 90% 70% at 15% 5%,  rgba(124,  58, 237, 0.07) 0%, transparent 55%),
+      radial-gradient(ellipse 70% 70% at 85% 90%, rgba( 59, 130, 246, 0.06) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 80% at 75% 15%, rgba(245, 158,  11, 0.05) 0%, transparent 55%),
+      radial-gradient(ellipse 80% 50% at 30% 85%, rgba( 16, 185, 129, 0.04) 0%, transparent 55%);
+    background-attachment: fixed;
   }
+
+  .dark body {
+    background-image:
+      radial-gradient(ellipse 90% 70% at 15% 5%,  rgba(124,  58, 237, 0.20) 0%, transparent 55%),
+      radial-gradient(ellipse 70% 70% at 85% 90%, rgba( 59, 130, 246, 0.16) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 80% at 75% 15%, rgba(245, 158,  11, 0.10) 0%, transparent 55%),
+      radial-gradient(ellipse 80% 50% at 30% 85%, rgba( 16, 185, 129, 0.08) 0%, transparent 55%);
+  }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-serif);
   }
+
+  [data-debug-wrapper="true"] {
+    display: contents !important;
+  }
+
+  [data-debug-wrapper="true"] > * {
+    margin-left: inherit;
+    margin-right: inherit;
+    margin-top: inherit;
+    margin-bottom: inherit;
+    padding-left: inherit;
+    padding-right: inherit;
+    padding-top: inherit;
+    padding-bottom: inherit;
+    column-gap: inherit;
+    row-gap: inherit;
+    gap: inherit;
+    border-left-width: inherit;
+    border-right-width: inherit;
+    border-top-width: inherit;
+    border-bottom-width: inherit;
+    border-left-style: inherit;
+    border-right-style: inherit;
+    border-top-style: inherit;
+    border-bottom-style: inherit;
+    border-left-style: inherit;
+    border-left-color: inherit;
+    border-right-color: inherit;
+    border-top-color: inherit;
+    border-bottom-color: inherit;
+  }
 }
 
-@layer base {
-    * {
-        @apply border-border;
-    }
-    body {
-        @apply bg-background text-foreground;
-    }
-}
+/* ─── Liquid Glass Utilities ──────────────────────────────────────────────── */
+@layer components {
 
-@layer base {
-    [data-debug-wrapper="true"] {
-        display: contents !important;
-    }
+  /* Glass card — replaces plain white/card surfaces */
+  .glass-card {
+    background-color: rgba(255, 255, 255, 0.62) !important;
+    backdrop-filter: blur(22px) saturate(180%) brightness(1.04);
+    -webkit-backdrop-filter: blur(22px) saturate(180%) brightness(1.04);
+    border: 1px solid rgba(255, 255, 255, 0.72) !important;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.08),
+      0 2px 6px  rgba(0, 0, 0, 0.04),
+      inset 0 1.5px 0 rgba(255, 255, 255, 0.90),
+      inset 0 -1px 0  rgba(255, 255, 255, 0.30);
+    border-radius: 1.25rem;
+  }
 
-    [data-debug-wrapper="true"] > * {
-        margin-left: inherit;
-        margin-right: inherit;
-        margin-top: inherit;
-        margin-bottom: inherit;
-        padding-left: inherit;
-        padding-right: inherit;
-        padding-top: inherit;
-        padding-bottom: inherit;
-        column-gap: inherit;
-        row-gap: inherit;
-        gap: inherit;
-        border-left-width: inherit;
-        border-right-width: inherit;
-        border-top-width: inherit;
-        border-bottom-width: inherit;
-        border-left-style: inherit;
-        border-right-style: inherit;
-        border-top-style: inherit;
-        border-bottom-style: inherit;
-        border-left-color: inherit;
-        border-right-color: inherit;
-        border-top-color: inherit;
-        border-bottom-color: inherit;
-    }
+  .dark .glass-card {
+    background-color: rgba(18, 24, 40, 0.58) !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.40),
+      0 2px 6px  rgba(0, 0, 0, 0.20),
+      inset 0 1.5px 0 rgba(255, 255, 255, 0.09),
+      inset 0 -1px 0  rgba(255, 255, 255, 0.04);
+  }
+
+  /* Glass panel — for modals and overlaid panels */
+  .glass-panel {
+    background-color: rgba(255, 255, 255, 0.80) !important;
+    backdrop-filter: blur(30px) saturate(200%) brightness(1.06);
+    -webkit-backdrop-filter: blur(30px) saturate(200%) brightness(1.06);
+    border: 1px solid rgba(255, 255, 255, 0.80) !important;
+    box-shadow:
+      0 20px 60px rgba(0, 0, 0, 0.14),
+      0 4px 12px  rgba(0, 0, 0, 0.06),
+      inset 0 2px 0  rgba(255, 255, 255, 0.95),
+      inset 0 -1px 0  rgba(255, 255, 255, 0.40);
+    border-radius: 1.5rem;
+  }
+
+  .dark .glass-panel {
+    background-color: rgba(15, 20, 35, 0.72) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow:
+      0 20px 60px rgba(0, 0, 0, 0.55),
+      0 4px 12px  rgba(0, 0, 0, 0.25),
+      inset 0 2px 0  rgba(255, 255, 255, 0.10),
+      inset 0 -1px 0  rgba(255, 255, 255, 0.04);
+  }
+
+  /* Glass nav — for top navbar */
+  .glass-nav {
+    background-color: rgba(255, 255, 255, 0.70) !important;
+    backdrop-filter: blur(28px) saturate(200%) brightness(1.05);
+    -webkit-backdrop-filter: blur(28px) saturate(200%) brightness(1.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.65) !important;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.06),
+      inset 0 -1px 0  rgba(255, 255, 255, 0.50);
+  }
+
+  .dark .glass-nav {
+    background-color: rgba(12, 17, 30, 0.70) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.30),
+      inset 0 -1px 0  rgba(255, 255, 255, 0.05);
+  }
+
+  /* Glass row — for list items (message-style rows) */
+  .glass-row {
+    background-color: rgba(255, 255, 255, 0.50);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.60);
+    box-shadow:
+      0 2px 12px rgba(0, 0, 0, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 0.80);
+    transition: all 0.2s ease;
+    border-radius: 1.25rem;
+  }
+
+  .glass-row:hover {
+    background-color: rgba(255, 255, 255, 0.72);
+    box-shadow:
+      0 6px 24px rgba(0, 0, 0, 0.10),
+      inset 0 1px 0 rgba(255, 255, 255, 0.90);
+    transform: translateY(-1px);
+  }
+
+  .dark .glass-row {
+    background-color: rgba(22, 28, 48, 0.50);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+      0 2px 12px rgba(0, 0, 0, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .dark .glass-row:hover {
+    background-color: rgba(30, 38, 60, 0.70);
+    box-shadow:
+      0 6px 24px rgba(0, 0, 0, 0.40),
+      inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  }
 }

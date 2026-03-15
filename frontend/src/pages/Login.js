@@ -123,7 +123,7 @@ export default function LoginPage() {
         </p>
       </div>
 
-      <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-xl p-6 sm:p-8">
+      <div className="w-full max-w-md glass-panel p-6 sm:p-8">
 
         {/* ── Forgot Password Flow ── */}
         {forgotMode ? (

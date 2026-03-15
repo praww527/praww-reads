@@ -44,7 +44,7 @@ export default function Messages() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 p-1 rounded-xl bg-muted/50 border border-border">
+      <div className="flex gap-1 mb-6 p-1 glass-card">
         <button
           onClick={() => setTab("dm")}
           className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-colors ${tab === "dm" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
@@ -82,7 +82,7 @@ export default function Messages() {
                 <Link
                   key={conv.other_user_id}
                   to={`/messages/${conv.other_user_id}`}
-                  className="flex items-center gap-4 p-4 rounded-2xl border border-border/60 hover:border-primary/40 hover:shadow-md transition-all bg-card cursor-pointer group"
+                  className="flex items-center gap-4 p-4 glass-row cursor-pointer group"
                 >
                   {conv.other_user_profile_image_url ? (
                     <img src={conv.other_user_profile_image_url} alt={conv.other_user_name} className="w-11 h-11 rounded-full object-cover border border-border shrink-0" />
@@ -127,7 +127,7 @@ export default function Messages() {
             <div className="space-y-2">
               {marketplaceThreads.map(thread => (
                 <Link key={`${thread.book_id}-${thread.other_user_id}`} to={`/books/${thread.book_id}`} data-testid={`inbox-thread-${thread.book_id}`}>
-                  <div className="flex items-center gap-4 p-4 rounded-2xl border border-border/60 hover:border-primary/40 hover:shadow-md transition-all bg-card cursor-pointer group">
+                  <div className="flex items-center gap-4 p-4 glass-row cursor-pointer group">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${thread.unread > 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
                       {(thread.other_user_name || "?")[0].toUpperCase()}
                     </div>

@@ -2,11 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { BookText, Tag, ArrowLeftRight, Loader2, Camera, X, Edit2, Trash2, MessageCircle, CheckCircle } from "lucide-react";
+import { BookText, Tag, ArrowLeftRight, Loader2, Camera, X, Edit2, Trash2, MessageCircle, CheckCircle, ShoppingBag } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 const CONDITION_LABELS = {
-  new: { label: "New", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  new:  { label: "New",  color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   good: { label: "Good", color: "bg-blue-100 text-blue-700 border-blue-200" },
   fair: { label: "Fair", color: "bg-amber-100 text-amber-700 border-amber-200" },
 };
@@ -122,114 +122,171 @@ export default function Marketplace() {
   }
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-7xl">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-        <div>
-          <h1 className="font-serif text-4xl sm:text-5xl font-bold tracking-tight">Book Marketplace</h1>
-          <p className="mt-3 text-lg text-muted-foreground">Buy, sell, and swap physical books within the community.</p>
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-2xl">
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <ShoppingBag className="h-7 w-7 text-primary" />
+          <div>
+            <h1 className="font-serif text-3xl font-bold leading-tight">Marketplace</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Buy, sell &amp; swap books in the community</p>
+          </div>
+          {books.length > 0 && (
+            <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full">
+              {books.length}
+            </span>
+          )}
         </div>
         <button
           data-testid="sell-book-btn"
           onClick={openCreate}
-          className="inline-flex items-center gap-2 rounded-xl bg-primary text-primary-foreground font-semibold px-6 py-3 hover:bg-primary/90 shadow-lg shadow-primary/20 transition-colors"
+          className="inline-flex items-center gap-2 rounded-2xl bg-primary text-primary-foreground font-semibold px-4 py-2.5 text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-colors"
         >
-          <Tag className="h-5 w-5" /> Sell a Book
+          <Tag className="h-4 w-4" /> Sell
         </button>
       </div>
 
+      {/* Book List — styled like group messages */}
       {loading ? (
         <div className="flex justify-center py-32"><Loader2 className="h-12 w-12 animate-spin text-primary/50" /></div>
       ) : books.length === 0 ? (
-        <div className="text-center py-32 border-2 border-dashed border-border rounded-2xl bg-muted/10">
+        <div className="text-center py-32 border-2 border-dashed border-border rounded-3xl bg-muted/10">
           <BookText className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
           <h3 className="font-serif text-2xl font-semibold">Marketplace is empty</h3>
           <p className="text-muted-foreground mt-2">Be the first to list a book.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="space-y-2">
           {books.map(book => {
             const cond = CONDITION_LABELS[book.condition] || CONDITION_LABELS.good;
             const isMine = user?.id === book.seller_id;
+            const sellerName = book.seller_name || "Seller";
+
             return (
-              <div key={book.id} className="group relative border border-border/60 rounded-2xl overflow-hidden hover:shadow-xl hover:border-primary/40 transition-all duration-300 bg-card flex flex-col">
+              <div key={book.id} className="glass-row relative">
                 {book.is_sold && (
-                  <div className="absolute top-2 right-2 z-10 bg-destructive text-destructive-foreground text-xs font-bold px-2 py-1 rounded-full">SOLD</div>
+                  <div className="absolute top-3 right-3 z-10 bg-destructive text-destructive-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">SOLD</div>
                 )}
-                <Link to={`/books/${book.id}`} className="flex flex-col flex-1">
-                  <div className="relative overflow-hidden bg-muted/40" style={{ aspectRatio: "4/3" }}>
+
+                <Link to={`/books/${book.id}`} className="flex items-center gap-4 p-4">
+                  {/* Book cover avatar */}
+                  <div className="relative shrink-0">
                     {book.image_url ? (
-                      <img src={book.image_url} alt={book.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <img
+                        src={book.image_url}
+                        alt={book.title}
+                        className="w-14 h-14 rounded-2xl object-cover border border-white/60 shadow-sm"
+                      />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center"><BookText className="h-12 w-12 text-muted-foreground/20" /></div>
-                    )}
-                    {book.allow_swap && (
-                      <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">
-                        <ArrowLeftRight className="h-3 w-3" /> Swap OK
+                      <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center border border-white/60 shadow-sm">
+                        <BookText className="h-6 w-6 text-primary/60" />
                       </div>
                     )}
+                    {book.allow_swap && (
+                      <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-sm">
+                        <ArrowLeftRight className="h-3 w-3" />
+                      </span>
+                    )}
                   </div>
-                  <div className="p-4 flex-1">
-                    <h3 className="font-serif font-bold text-base leading-tight line-clamp-2 mb-1 group-hover:text-primary transition-colors">{book.title}</h3>
-                    {book.author && <p className="text-xs text-muted-foreground mb-2">by {book.author}</p>}
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${cond.color}`}>{cond.label}</span>
-                      <span className="text-xs text-muted-foreground">{book.created_at ? formatDistanceToNow(new Date(book.created_at)) + " ago" : ""}</span>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-semibold text-sm leading-tight line-clamp-1">{book.title}</span>
+                      <span className="text-base font-bold text-primary shrink-0">R{book.price}</span>
                     </div>
-                    <div className="text-2xl font-bold">R{book.price}</div>
-                    <p className="text-xs text-muted-foreground">15% platform commission</p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {book.author && (
+                        <span className="text-xs text-muted-foreground truncate">by {book.author}</span>
+                      )}
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${cond.color}`}>{cond.label}</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-4 h-4 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground border border-border/50 shrink-0">
+                          {sellerName[0]?.toUpperCase()}
+                        </div>
+                        <span className="text-xs text-muted-foreground truncate">{sellerName}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {book.created_at ? formatDistanceToNow(new Date(book.created_at)) + " ago" : ""}
+                      </span>
+                    </div>
                   </div>
                 </Link>
-                <div className="p-4 pt-0 flex gap-2">
-                  {isMine ? (
-                    <>
-                      <button onClick={() => openEdit(book)} className="flex-1 flex items-center justify-center gap-1 text-sm border border-border rounded-lg px-3 py-2 hover:border-primary/40 transition-colors">
-                        <Edit2 className="h-3.5 w-3.5" /> Edit
-                      </button>
-                      <button onClick={() => handleMarkSold(book)} className={`flex-1 flex items-center justify-center gap-1 text-sm border rounded-lg px-3 py-2 transition-colors ${book.is_sold ? "border-emerald-300 text-emerald-700 bg-emerald-50" : "border-border hover:border-emerald-300"}`}>
-                        <CheckCircle className="h-3.5 w-3.5" /> {book.is_sold ? "Unsell" : "Mark Sold"}
-                      </button>
-                      <button onClick={() => setDeletingId(book.id)} className="flex items-center justify-center text-sm border border-border rounded-lg px-3 py-2 text-destructive hover:border-destructive/40 transition-colors">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </>
-                  ) : (
-                    <Link to={`/books/${book.id}`} className="w-full flex items-center justify-center gap-1.5 text-sm bg-primary/10 text-primary border border-primary/20 rounded-lg px-3 py-2 hover:bg-primary/20 transition-colors font-medium">
-                      <MessageCircle className="h-3.5 w-3.5" /> Message Seller
-                    </Link>
-                  )}
-                </div>
+
+                {/* Actions */}
+                {isMine && (
+                  <div className="flex gap-2 px-4 pb-3 pt-0">
+                    <button
+                      onClick={() => openEdit(book)}
+                      className="flex-1 flex items-center justify-center gap-1.5 text-xs border border-border/60 rounded-xl px-3 py-2 hover:bg-white/40 transition-colors font-medium"
+                    >
+                      <Edit2 className="h-3 w-3" /> Edit
+                    </button>
+                    <button
+                      onClick={() => handleMarkSold(book)}
+                      className={`flex-1 flex items-center justify-center gap-1.5 text-xs border rounded-xl px-3 py-2 transition-colors font-medium ${
+                        book.is_sold
+                          ? "border-emerald-300 text-emerald-700 bg-emerald-50/60"
+                          : "border-border/60 hover:border-emerald-300 hover:bg-white/40"
+                      }`}
+                    >
+                      <CheckCircle className="h-3 w-3" /> {book.is_sold ? "Unsell" : "Mark Sold"}
+                    </button>
+                    <button
+                      onClick={() => setDeletingId(book.id)}
+                      className="flex items-center justify-center text-xs border border-border/60 rounded-xl px-3 py-2 text-destructive hover:border-destructive/40 hover:bg-destructive/5 transition-colors"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       )}
 
-      {/* Form Dialog */}
+      {/* List a Book Form Dialog */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-background rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-lg glass-panel max-h-[90vh] overflow-y-auto p-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-serif text-2xl font-bold">{editingBook ? "Edit Book" : "List a Book"}</h2>
               <button onClick={() => setShowForm(false)} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Photo */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Book Photo <span className="text-muted-foreground text-xs">(optional)</span></label>
-                <div className="relative border-2 border-dashed border-border rounded-xl overflow-hidden bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
-                  style={{ aspectRatio: "4/3" }} onClick={() => fileRef.current?.click()}>
+                <div
+                  className="relative border-2 border-dashed border-border rounded-2xl overflow-hidden bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors"
+                  style={{ aspectRatio: "4/3" }}
+                  onClick={() => fileRef.current?.click()}
+                >
                   {imagePreview ? (
                     <>
                       <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                      {imageProcessing && <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}
-                      <button type="button" className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70"
-                        onClick={e => { e.stopPropagation(); setImagePreview(null); setForm(f => ({ ...f, image_url: "" })); }}>
+                      {imageProcessing && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                          <Loader2 className="h-8 w-8 animate-spin text-white" />
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70"
+                        onClick={e => { e.stopPropagation(); setImagePreview(null); setForm(f => ({ ...f, image_url: "" })); }}
+                      >
                         <X className="h-4 w-4" />
                       </button>
                     </>
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground p-8">
-                      {imageProcessing ? <Loader2 className="h-8 w-8 animate-spin" /> : <><Camera className="h-8 w-8" /><span className="text-sm">Click to upload (max 2MB)</span></>}
+                      {imageProcessing
+                        ? <Loader2 className="h-8 w-8 animate-spin" />
+                        : <><Camera className="h-8 w-8" /><span className="text-sm">Click to upload (max 2MB)</span></>
+                      }
                     </div>
                   )}
                 </div>
@@ -238,51 +295,81 @@ export default function Marketplace() {
 
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Book Title *</label>
-                <input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                <input
+                  required
+                  value={form.title}
+                  onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                   placeholder="e.g. Introduction to Algorithms"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                  className="w-full rounded-xl border border-input bg-white/50 backdrop-blur-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Author <span className="text-muted-foreground text-xs">(optional)</span></label>
-                <input value={form.author} onChange={e => setForm(f => ({ ...f, author: e.target.value }))}
+                <input
+                  value={form.author}
+                  onChange={e => setForm(f => ({ ...f, author: e.target.value }))}
                   placeholder="e.g. Thomas H. Cormen"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                  className="w-full rounded-xl border border-input bg-white/50 backdrop-blur-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Price (R) *</label>
-                  <input required type="number" min="0.01" step="0.01" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                  <input
+                    required
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={form.price}
+                    onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
                     placeholder="250"
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                    className="w-full rounded-xl border border-input bg-white/50 backdrop-blur-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Condition</label>
-                  <select value={form.condition} onChange={e => setForm(f => ({ ...f, condition: e.target.value }))}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                  <select
+                    value={form.condition}
+                    onChange={e => setForm(f => ({ ...f, condition: e.target.value }))}
+                    className="w-full rounded-xl border border-input bg-white/50 backdrop-blur-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
                     <option value="new">New</option>
                     <option value="good">Good</option>
                     <option value="fair">Fair</option>
                   </select>
                 </div>
               </div>
-              <div className="rounded-xl border border-border/60 p-4 space-y-3 bg-muted/20">
+              <div className="rounded-2xl border border-border/60 p-4 space-y-3 bg-white/30 backdrop-blur-sm">
                 <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={form.allow_swap} onChange={e => setForm(f => ({ ...f, allow_swap: e.target.checked }))}
-                    className="rounded border-input" />
-                  <span className="text-sm font-medium flex items-center gap-1.5"><ArrowLeftRight className="h-4 w-4" /> Open to swapping</span>
+                  <input
+                    type="checkbox"
+                    checked={form.allow_swap}
+                    onChange={e => setForm(f => ({ ...f, allow_swap: e.target.checked }))}
+                    className="rounded border-input"
+                  />
+                  <span className="text-sm font-medium flex items-center gap-1.5">
+                    <ArrowLeftRight className="h-4 w-4" /> Open to swapping
+                  </span>
                 </label>
                 {form.allow_swap && (
-                  <textarea value={form.swap_for} onChange={e => setForm(f => ({ ...f, swap_for: e.target.value }))}
-                    placeholder="What would you swap for?" rows={2}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
+                  <textarea
+                    value={form.swap_for}
+                    onChange={e => setForm(f => ({ ...f, swap_for: e.target.value }))}
+                    placeholder="What would you swap for?"
+                    rows={2}
+                    className="w-full rounded-xl border border-input bg-white/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                  />
                 )}
               </div>
               {formError && (
-                <div className="rounded-lg bg-destructive/10 border border-destructive/20 text-destructive px-3 py-2.5 text-sm">
+                <div className="rounded-xl bg-destructive/10 border border-destructive/20 text-destructive px-3 py-2.5 text-sm">
                   {formError}
                 </div>
               )}
-              <button type="submit" className="w-full rounded-xl bg-primary text-primary-foreground font-semibold py-3 hover:bg-primary/90 transition-colors">
+              <button
+                type="submit"
+                className="w-full rounded-2xl bg-primary text-primary-foreground font-semibold py-3 hover:bg-primary/90 transition-colors"
+              >
                 {editingBook ? "Update Book" : "List Book on Marketplace"}
               </button>
             </form>
@@ -292,13 +379,13 @@ export default function Marketplace() {
 
       {/* Delete Confirm */}
       {deletingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-background rounded-2xl shadow-2xl p-6 max-w-sm w-full">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="glass-panel p-6 max-w-sm w-full">
             <h3 className="font-serif text-xl font-bold mb-2">Delete Book</h3>
             <p className="text-muted-foreground text-sm mb-5">Are you sure? This cannot be undone.</p>
             <div className="flex gap-3">
-              <button onClick={() => setDeletingId(null)} className="flex-1 rounded-lg border border-border py-2 text-sm hover:bg-muted transition-colors">Cancel</button>
-              <button onClick={handleDelete} className="flex-1 rounded-lg bg-destructive text-destructive-foreground py-2 text-sm font-semibold hover:bg-destructive/90 transition-colors">Delete</button>
+              <button onClick={() => setDeletingId(null)} className="flex-1 rounded-2xl border border-border py-2.5 text-sm hover:bg-white/30 transition-colors">Cancel</button>
+              <button onClick={handleDelete} className="flex-1 rounded-2xl bg-destructive text-destructive-foreground py-2.5 text-sm font-semibold hover:bg-destructive/90 transition-colors">Delete</button>
             </div>
           </div>
         </div>
@@ -306,5 +393,3 @@ export default function Marketplace() {
     </div>
   );
 }
-
-// end of file
