@@ -778,6 +778,28 @@ export default function Settings() {
             )}
           </div>
 
+          {/* Legal */}
+          <div className="glass-card p-0 mb-6 overflow-hidden">
+            <div className="px-6 py-4 border-b border-border">
+              <h2 className="font-semibold text-lg">Legal</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">Policies and support information.</p>
+            </div>
+            <div className="divide-y divide-border">
+              {[
+                { to: "/legal/privacy", label: "Privacy Policy" },
+                { to: "/legal/terms", label: "Terms of Service" },
+                { to: "/legal/content-rules", label: "Content Rules for Writers" },
+                { to: "/legal/contact", label: "Contact & Support" },
+              ].map(({ to, label }) => (
+                <Link key={to} to={to}
+                  className="flex items-center justify-between px-6 py-3.5 hover:bg-muted/50 transition-colors group">
+                  <span className="text-sm">{label}</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                </Link>
+              ))}
+            </div>
+          </div>
+
           {/* Log Out */}
           <div className="glass-card p-6">
             <div className="flex items-center gap-2 mb-2">

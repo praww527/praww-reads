@@ -19,6 +19,11 @@ import MarketplaceMessages from "./pages/MarketplaceMessages";
 import SearchPage from "./pages/Search";
 import Settings from "./pages/Settings";
 import Earnings from "./pages/Earnings";
+import Legal from "./pages/Legal";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import ContentRules from "./pages/ContentRules";
+import ContactSupport from "./pages/ContactSupport";
 import { Loader2 } from "lucide-react";
 import "./App.css";
 
@@ -65,6 +70,13 @@ function AppShell() {
           <Route path="/search" element={<PrivateRoute><SearchPage /></PrivateRoute>} />
           <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
           <Route path="/earnings" element={<PrivateRoute><Navigate to="/settings?tab=earnings" replace /></PrivateRoute>} />
+
+          {/* Public legal routes */}
+          <Route path="/legal" element={<Legal />} />
+          <Route path="/legal/privacy" element={<PrivacyPolicy />} />
+          <Route path="/legal/terms" element={<TermsOfService />} />
+          <Route path="/legal/content-rules" element={<ContentRules />} />
+          <Route path="/legal/contact" element={<ContactSupport />} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>
