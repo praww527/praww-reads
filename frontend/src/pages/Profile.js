@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { ArrowLeft, BookOpen, Pencil, Loader2, Users, Camera, X, Check, BadgeCheck, Lock, MessageCircle, AlertCircle } from "lucide-react";
+import { ArrowLeft, BookOpen, Pencil, Loader2, Users, Camera, X, Check, BadgeCheck, Lock, MessageCircle, AlertCircle, Heart, ShoppingBag, Settings2, LogOut, ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 async function resizeImage(file, maxBytes = 2 * 1024 * 1024) {
@@ -31,7 +31,7 @@ async function resizeImage(file, maxBytes = 2 * 1024 * 1024) {
 
 export default function Profile() {
   const { userId } = useParams();
-  const { user: me, isAuthenticated, loading: authLoading, refreshUser } = useAuth();
+  const { user: me, isAuthenticated, loading: authLoading, refreshUser, logout } = useAuth();
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState(null);
@@ -236,6 +236,46 @@ export default function Profile() {
         </div>
       </div>
 
+      {/* Account Quick Links — own profile only */}
+      {isOwnProfile && (
+        <div className="bg-card border border-border rounded-2xl mb-8 shadow-sm overflow-hidden">
+          <h2 className="font-serif text-base font-bold px-6 pt-5 pb-3 text-muted-foreground uppercase tracking-wide text-xs">Account</h2>
+          <nav className="divide-y divide-border">
+            <Link to="/favorites" className="flex items-center justify-between px-6 py-4 hover:bg-muted/50 transition-colors group">
+              <div className="flex items-center gap-3">
+                <Heart className="h-5 w-5 text-rose-500" />
+                <span className="text-sm font-medium">Favorites</span>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </Link>
+            <Link to="/marketplace" className="flex items-center justify-between px-6 py-4 hover:bg-muted/50 transition-colors group">
+              <div className="flex items-center gap-3">
+                <ShoppingBag className="h-5 w-5 text-emerald-500" />
+                <span className="text-sm font-medium">Marketplace</span>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </Link>
+            <Link to="/settings" className="flex items-center justify-between px-6 py-4 hover:bg-muted/50 transition-colors group">
+              <div className="flex items-center gap-3">
+                <Settings2 className="h-5 w-5 text-blue-500" />
+                <span className="text-sm font-medium">Settings</span>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </Link>
+            <button
+              onClick={async () => { await logout(); navigate("/login"); }}
+              className="w-full flex items-center justify-between px-6 py-4 hover:bg-muted/50 transition-colors group text-left"
+            >
+              <div className="flex items-center gap-3">
+                <LogOut className="h-5 w-5 text-destructive" />
+                <span className="text-sm font-medium text-destructive">Log out</span>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </button>
+          </nav>
+        </div>
+      )}
+
       {/* Stories */}
       <div>
         <h2 className="font-serif text-2xl font-bold mb-6">{isOwnProfile ? "Your Stories" : "Stories"}</h2>
@@ -275,7 +315,7 @@ export default function Profile() {
           <div className="w-full max-w-md bg-background rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto p-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-serif text-xl font-bold">Edit Profile</h2>
-              <button onClick={() => setEditOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+              <button onClick={() => { setEditOpen(false); setSaveError(""); }} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleSave} className="space-y-4">
               {/* Profile Photo */}
