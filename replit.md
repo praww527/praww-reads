@@ -114,6 +114,17 @@ cd frontend && npm install && CI=false node_modules/.bin/craco build
 ```
 Then restart the workflow.
 
+## Bug Fixes Applied (March 2026 — Round 2)
+
+- **Verification code expiry**: Changed ALL verification code expiry from 60 seconds to **10 minutes** across all flows (registration, email change, phone verify, password change, password reset). Updated all email templates to show "10 minutes".
+- **Verification resend countdown**: Registration page now shows a **90-second countdown timer** on the "Resend code" button to prevent code flooding. Button is disabled during cooldown with a live countdown display.
+- **AI detection threshold raised to 80**: Content scoring 80+ is now a hard block (was 75). The `likely_ai` verdict threshold in the backend and the `isHardBlock` logic in the frontend both use 80. Scores 40–79 show a warning but allow publishing.
+- **PayFast name field bug fixed**: `current_user.get("name")` doesn't exist — replaced with `first_name + last_name` in both donation and purchase initiation endpoints.
+- **Rate limiting added to verification code endpoints**: `request-email-change`, `request-phone-verify`, and `request-password-change-code` now have per-user rate limits (3 per 10 min) to prevent code flooding.
+- **Rate limiting on AI check endpoint**: Limited to 20 AI checks per user per 10 minutes.
+- **Content length validation added**: Story titles (200 chars), descriptions (2000 chars), content (500,000 chars), chapter titles (200 chars), chapter content (500,000 chars), and comments (2000 chars) are all validated server-side.
+- **Paid story price validation**: Backend enforces minimum R5 and maximum R9999 price for paid stories.
+
 ## Bug Fixes Applied (March 2026)
 
 - **Settings page crash**: Fixed null-reference crash on `phoneStatus.days_left` when phone status hadn't loaded yet (now uses optional chaining `phoneStatus?.days_left`)

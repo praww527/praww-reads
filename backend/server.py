@@ -409,7 +409,7 @@ async def register(data: RegisterInput, response: Response, request: Request):
         return result
 
     code = generate_code()
-    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
+    expires = datetime.now(timezone.utc) + timedelta(minutes=10)
     await db.pending_registrations.update_one(
         {"email": email},
         {"$set": {
@@ -432,7 +432,7 @@ async def register(data: RegisterInput, response: Response, request: Request):
             <span style="font-size:28px;font-weight:800;color:#1a1a1a;">📖 PRaww Reads</span>
           </div>
           <h2 style="margin-bottom:8px;color:#1a1a1a;">Welcome! Verify your email</h2>
-          <p style="color:#6b7280;margin-bottom:4px;">Enter the code below to activate your account. It expires in <strong>60 seconds</strong>.</p>
+          <p style="color:#6b7280;margin-bottom:4px;">Enter the code below to activate your account. It expires in <strong>10 minutes</strong>.</p>
           <div style="font-size:40px;font-weight:700;letter-spacing:10px;text-align:center;padding:28px 0;color:#4f46e5;background:#f5f3ff;border-radius:10px;margin:20px 0;">{code}</div>
           <p style="color:#9ca3af;font-size:13px;">If you did not create a PRaww Reads account, you can safely ignore this email.</p>
           <hr style="border:none;border-top:1px solid #f3f4f6;margin:20px 0;" />
@@ -527,8 +527,13 @@ async def change_password_legacy(data: ChangePasswordInput, current_user: dict =
     raise HTTPException(410, "This endpoint is no longer supported. Use the new password change flow: request a verification code from Settings.")
 
 @api_router.post("/auth/request-email-change")
-async def request_email_change(data: RequestEmailChangeInput, current_user: dict = Depends(get_current_user)):
+async def request_email_change(data: RequestEmailChangeInput, request: Request, current_user: dict = Depends(get_current_user)):
     """Step 1: Verify current password, then send a code to the NEW email."""
+    client_ip = request.client.host if request.client else "unknown"
+    if not _rate_check(f"email_change:{current_user['id']}", limit=3, window_secs=600):
+        raise HTTPException(429, "Too many email change requests. Please wait 10 minutes before trying again.")
+    if not _rate_check(f"email_change_ip:{client_ip}", limit=5, window_secs=600):
+        raise HTTPException(429, "Too many requests from this IP. Please try again later.")
     if not verify_password(data.current_password, current_user.get("password_hash", "")):
         raise HTTPException(400, "Current password is incorrect")
     new_email = data.new_email.strip().lower()
@@ -540,7 +545,7 @@ async def request_email_change(data: RequestEmailChangeInput, current_user: dict
     if existing:
         raise HTTPException(409, "An account with this email already exists")
     code = generate_code()
-    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
+    expires = datetime.now(timezone.utc) + timedelta(minutes=10)
     await db.pending_email_changes.update_one(
         {"user_id": current_user["id"]},
         {"$set": {
@@ -560,7 +565,7 @@ async def request_email_change(data: RequestEmailChangeInput, current_user: dict
         body_html=f"""
         <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;">
           <h2 style="margin-bottom:8px;">Confirm your new email</h2>
-          <p style="color:#6b7280;">Enter this code in the app to confirm your new email address. It expires in <strong>60 seconds</strong>.</p>
+          <p style="color:#6b7280;">Enter this code in the app to confirm your new email address. It expires in <strong>10 minutes</strong>.</p>
           <div style="font-size:36px;font-weight:700;letter-spacing:8px;text-align:center;padding:24px 0;color:#4f46e5;">{code}</div>
           <p style="color:#9ca3af;font-size:13px;">If you did not request this change, you can safely ignore this email.</p>
           {backup_note}
@@ -647,8 +652,10 @@ async def request_premium(data: RequestPremiumInput, current_user: dict = Depend
     }
 
 @api_router.post("/auth/request-phone-verify")
-async def request_phone_verify(data: RequestPhoneVerifyInput, current_user: dict = Depends(get_current_user)):
+async def request_phone_verify(data: RequestPhoneVerifyInput, request: Request, current_user: dict = Depends(get_current_user)):
     """Send a verification code to the user's email to verify a new phone number."""
+    if not _rate_check(f"phone_verify:{current_user['id']}", limit=3, window_secs=600):
+        raise HTTPException(429, "Too many phone verification requests. Please wait 10 minutes before trying again.")
     phone = data.phone.strip()
     if not phone:
         raise HTTPException(400, "Phone number is required")
@@ -664,7 +671,7 @@ async def request_phone_verify(data: RequestPhoneVerifyInput, current_user: dict
             days_left = PHONE_CHANGE_DAYS - days_since
             raise HTTPException(400, f"You can only change your phone number once every {PHONE_CHANGE_DAYS} days. Try again in {days_left} day(s).")
     code = generate_code()
-    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
+    expires = datetime.now(timezone.utc) + timedelta(minutes=10)
     await db.pending_phone_verifications.update_one(
         {"user_id": current_user["id"]},
         {"$set": {
@@ -685,7 +692,7 @@ async def request_phone_verify(data: RequestPhoneVerifyInput, current_user: dict
             <span style="font-size:28px;font-weight:800;color:#1a1a1a;">📖 PRaww Reads</span>
           </div>
           <h2 style="margin-bottom:8px;color:#1a1a1a;">Verify your phone number</h2>
-          <p style="color:#6b7280;">You are adding <strong>{phone}</strong> as your phone number. Enter this code to confirm. It expires in <strong>60 seconds</strong>.</p>
+          <p style="color:#6b7280;">You are adding <strong>{phone}</strong> as your phone number. Enter this code to confirm. It expires in <strong>10 minutes</strong>.</p>
           <div style="font-size:40px;font-weight:700;letter-spacing:10px;text-align:center;padding:28px 0;color:#4f46e5;background:#f5f3ff;border-radius:10px;margin:20px 0;">{code}</div>
           <p style="color:#9ca3af;font-size:13px;">If you did not request this, you can safely ignore this email.</p>
           <hr style="border:none;border-top:1px solid #f3f4f6;margin:20px 0;" />
@@ -717,10 +724,12 @@ async def verify_phone(data: VerifyPhoneInput, current_user: dict = Depends(get_
     return {"message": "Phone number verified and saved successfully", "phone": pending["pending_phone"]}
 
 @api_router.post("/auth/request-password-change-code")
-async def request_password_change_code(current_user: dict = Depends(get_current_user)):
+async def request_password_change_code(request: Request, current_user: dict = Depends(get_current_user)):
     """Send a verification code to the user's email before allowing a password change."""
+    if not _rate_check(f"pw_change:{current_user['id']}", limit=3, window_secs=600):
+        raise HTTPException(429, "Too many password change requests. Please wait 10 minutes before trying again.")
     code = generate_code()
-    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
+    expires = datetime.now(timezone.utc) + timedelta(minutes=10)
     await db.pending_password_changes.update_one(
         {"user_id": current_user["id"]},
         {"$set": {
@@ -742,7 +751,7 @@ async def request_password_change_code(current_user: dict = Depends(get_current_
             <span style="font-size:28px;font-weight:800;color:#1a1a1a;">📖 PRaww Reads</span>
           </div>
           <h2 style="margin-bottom:8px;color:#1a1a1a;">Confirm your password change</h2>
-          <p style="color:#6b7280;">Someone requested a password change on your account. Enter this code to proceed. It expires in <strong>60 seconds</strong>.</p>
+          <p style="color:#6b7280;">Someone requested a password change on your account. Enter this code to proceed. It expires in <strong>10 minutes</strong>.</p>
           <div style="font-size:40px;font-weight:700;letter-spacing:10px;text-align:center;padding:28px 0;color:#4f46e5;background:#f5f3ff;border-radius:10px;margin:20px 0;">{code}</div>
           {phone_note}
           <p style="color:#9ca3af;font-size:13px;">If you did not request this change, secure your account immediately.</p>
@@ -789,7 +798,7 @@ async def forgot_password(data: ForgotPasswordInput, request: Request):
     if not user:
         return {"message": "If an account with that email exists, a reset code has been sent."}
     code = generate_code()
-    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
+    expires = datetime.now(timezone.utc) + timedelta(minutes=10)
     await db.password_reset_codes.update_one(
         {"email": email},
         {"$set": {
@@ -811,7 +820,7 @@ async def forgot_password(data: ForgotPasswordInput, request: Request):
             <span style="font-size:28px;font-weight:800;color:#1a1a1a;">📖 PRaww Reads</span>
           </div>
           <h2 style="margin-bottom:8px;color:#1a1a1a;">Reset your password</h2>
-          <p style="color:#6b7280;">Enter this code in the app to reset your password. It expires in <strong>60 seconds</strong>.</p>
+          <p style="color:#6b7280;">Enter this code in the app to reset your password. It expires in <strong>10 minutes</strong>.</p>
           <div style="font-size:40px;font-weight:700;letter-spacing:10px;text-align:center;padding:28px 0;color:#4f46e5;background:#f5f3ff;border-radius:10px;margin:20px 0;">{code}</div>
           {phone_note}
           <p style="color:#9ca3af;font-size:13px;">If you did not request a password reset, you can safely ignore this email.</p>
@@ -1064,11 +1073,21 @@ async def get_story(story_id: str, request: Request, current_user: Optional[dict
 
 @api_router.post("/stories")
 async def create_story(data: CreateStoryInput, current_user: dict = Depends(get_current_user)):
+    if not data.title or not data.title.strip():
+        raise HTTPException(400, "Story title is required")
+    if len(data.title.strip()) > 200:
+        raise HTTPException(400, "Story title must be 200 characters or fewer")
+    if data.description and len(data.description) > 2000:
+        raise HTTPException(400, "Description must be 2000 characters or fewer")
+    if data.content and len(data.content) > 500000:
+        raise HTTPException(400, "Story content is too long (max 500,000 characters)")
+    if data.is_paid and (not data.price or data.price < 5 or data.price > 9999):
+        raise HTTPException(400, "Paid story price must be between R5 and R9999")
     story_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     story = {
         "id": story_id,
-        "title": data.title,
+        "title": data.title.strip(),
         "content": data.content,
         "description": data.description or "",
         "cover_image_url": data.cover_image_url or "",
@@ -1155,7 +1174,8 @@ async def initiate_donation(data: PayFastDonationInput, current_user: dict = Dep
         "platform_amount": platform_amount, "status": "pending", "created_at": now,
     })
     base = APP_URL
-    name_parts = (current_user.get("name") or current_user["username"]).split(maxsplit=1)
+    full_name = f"{current_user.get('first_name', '')} {current_user.get('last_name', '')}".strip() or current_user["username"]
+    name_parts = full_name.split(maxsplit=1)
     item_name = f"Donation – {story.get('title', 'Story')[:80]}"
     fields = [
         ("merchant_id",    PAYFAST_MERCHANT_ID),
@@ -1214,7 +1234,8 @@ async def initiate_purchase(data: PayFastPurchaseInput, current_user: dict = Dep
         "platform_amount": platform_amount, "status": "pending", "created_at": now,
     })
     base = APP_URL
-    name_parts = (current_user.get("name") or current_user["username"]).split(maxsplit=1)
+    full_name = f"{current_user.get('first_name', '')} {current_user.get('last_name', '')}".strip() or current_user["username"]
+    name_parts = full_name.split(maxsplit=1)
     item_name = f"Story Purchase – {story.get('title', 'Story')[:75]}"
     fields = [
         ("merchant_id",    PAYFAST_MERCHANT_ID),
@@ -1439,6 +1460,10 @@ async def get_story_comments(story_id: str, current_user: Optional[dict] = Depen
 
 @api_router.post("/stories/{story_id}/comments")
 async def create_story_comment(story_id: str, data: CreateCommentInput, current_user: dict = Depends(get_current_user)):
+    if not data.content or not data.content.strip():
+        raise HTTPException(400, "Comment content is required")
+    if len(data.content) > 2000:
+        raise HTTPException(400, "Comment must be 2000 characters or fewer")
     comment_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     comment = {"id": comment_id, "story_id": story_id, "user_id": current_user["id"], "content": data.content, "parent_id": data.parent_id, "created_at": now, "updated_at": now}
@@ -1487,6 +1512,12 @@ async def get_chapters(story_id: str):
 
 @api_router.post("/stories/{story_id}/chapters")
 async def create_chapter(story_id: str, data: CreateChapterInput, current_user: dict = Depends(get_current_user)):
+    if not data.title or not data.title.strip():
+        raise HTTPException(400, "Chapter title is required")
+    if len(data.title.strip()) > 200:
+        raise HTTPException(400, "Chapter title must be 200 characters or fewer")
+    if data.content and len(data.content) > 500000:
+        raise HTTPException(400, "Chapter content is too long (max 500,000 characters)")
     story = await db.stories.find_one({"id": story_id, "author_id": current_user["id"]})
     if not story:
         raise HTTPException(403, "Story not found or unauthorized")
@@ -1859,7 +1890,7 @@ def _analyze_ai_content(text: str) -> dict:
     final_score = int(sum(scores) / len(scores)) if scores else 0
     final_score = max(0, min(100, final_score))
 
-    if final_score >= 70:
+    if final_score >= 80:
         verdict = "likely_ai"
     elif final_score >= 40:
         verdict = "possibly_ai"
@@ -1879,7 +1910,9 @@ class CheckAIInput(BaseModel):
     chapters: Optional[list] = None
 
 @api_router.post("/stories/check-ai")
-async def check_ai_content(data: CheckAIInput, current_user: dict = Depends(get_current_user)):
+async def check_ai_content(data: CheckAIInput, request: Request, current_user: dict = Depends(get_current_user)):
+    if not _rate_check(f"ai_check:{current_user['id']}", limit=20, window_secs=600):
+        raise HTTPException(429, "Too many AI checks. Please wait before trying again.")
     if data.chapters:
         full_text = "\n\n".join(ch.get("content", "") for ch in data.chapters)
     else:

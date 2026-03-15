@@ -1,7 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/AuthContext";
 import { BookOpen, Loader2, Mail, RefreshCw } from "lucide-react";
+
+const RESEND_COOLDOWN = 90;
 
 export default function RegisterPage() {
   const { register, verifyEmail } = useAuth();
@@ -24,6 +26,29 @@ export default function RegisterPage() {
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const codeRefs = [useRef(), useRef(), useRef(), useRef(), useRef(), useRef()];
 
+  const [countdown, setCountdown] = useState(0);
+  const countdownRef = useRef(null);
+
+  function startCountdown() {
+    setCountdown(RESEND_COOLDOWN);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    countdownRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, []);
+
   async function handleRegister(e) {
     e.preventDefault();
     setError("");
@@ -41,6 +66,7 @@ export default function RegisterPage() {
       setVerifyStep(true);
       setShowLoginPrompt(false);
       setCode(["", "", "", "", "", ""]);
+      startCountdown();
       setTimeout(() => codeRefs[0].current?.focus(), 100);
     } catch (err) {
       const msg = err.message || "Registration failed";
@@ -58,11 +84,13 @@ export default function RegisterPage() {
   }
 
   async function handleResend() {
+    if (countdown > 0) return;
     setError("");
     setSubmitting(true);
     try {
       await register(verifyEmail_, password, firstName, lastName);
       setCode(["", "", "", "", "", ""]);
+      startCountdown();
       setTimeout(() => codeRefs[0].current?.focus(), 100);
     } catch (err) {
       const msg = err.message || "Could not resend code";
@@ -146,7 +174,7 @@ export default function RegisterPage() {
               <h2 className="font-serif text-xl font-bold">Check your email</h2>
               <p className="text-sm text-muted-foreground">
                 We sent a 6-digit code to <span className="font-medium text-foreground">{verifyEmail_}</span>.
-                It expires in 60 seconds.
+                It expires in 10 minutes.
               </p>
             </div>
 
@@ -176,12 +204,13 @@ export default function RegisterPage() {
             </button>
 
             <div className="flex items-center justify-center gap-4 text-sm">
-              <button type="button" onClick={handleResend} disabled={submitting}
-                className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50">
-                <RefreshCw className="h-3.5 w-3.5" /> Resend code
+              <button type="button" onClick={handleResend} disabled={submitting || countdown > 0}
+                className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                <RefreshCw className="h-3.5 w-3.5" />
+                {countdown > 0 ? `Resend in ${countdown}s` : "Resend code"}
               </button>
               <span className="text-border">|</span>
-              <button type="button" onClick={() => { setVerifyStep(false); setError(""); }}
+              <button type="button" onClick={() => { setVerifyStep(false); setError(""); if (countdownRef.current) clearInterval(countdownRef.current); setCountdown(0); }}
                 className="text-muted-foreground hover:text-primary transition-colors">
                 Change email
               </button>

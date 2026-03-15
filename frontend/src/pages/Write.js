@@ -190,6 +190,7 @@ export default function Write() {
   }
 
   const showAiPanel = aiResult && (aiResult.verdict === "likely_ai" || aiResult.verdict === "possibly_ai");
+  const isHardBlock = aiResult && aiResult.score >= 80;
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-10">
@@ -326,20 +327,20 @@ export default function Write() {
 
         {/* AI Detection Result Panel */}
         {showAiPanel && (
-          <div className={`rounded-2xl border p-5 space-y-4 ${aiResult.score >= 75 ? "border-red-300 bg-red-50 dark:bg-red-950/20 dark:border-red-800" : "border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800"}`}>
+          <div className={`rounded-2xl border p-5 space-y-4 ${isHardBlock ? "border-red-300 bg-red-50 dark:bg-red-950/20 dark:border-red-800" : "border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800"}`}>
             <div className="flex items-start gap-4">
               <div className="flex flex-col items-center gap-2 shrink-0">
-                {aiResult.score >= 75
+                {isHardBlock
                   ? <Bot className="h-8 w-8 text-red-500" />
                   : <AlertTriangle className="h-8 w-8 text-amber-500" />
                 }
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className={`font-bold text-base mb-1 ${aiResult.score >= 75 ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
-                  {aiResult.score >= 75 ? "Publishing rejected — AI-generated content detected" : "This content may contain AI-generated text"}
+                <h3 className={`font-bold text-base mb-1 ${isHardBlock ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
+                  {isHardBlock ? "Publishing rejected — AI-generated content detected" : "This content may contain AI-generated text"}
                 </h3>
-                <p className={`text-sm ${aiResult.score >= 75 ? "text-red-600 dark:text-red-300" : "text-amber-700 dark:text-amber-300"}`}>
-                  {aiResult.score >= 75
+                <p className={`text-sm ${isHardBlock ? "text-red-600 dark:text-red-300" : "text-amber-700 dark:text-amber-300"}`}>
+                  {isHardBlock
                     ? "PRaww Reads only allows original human writing. Your content scored " + aiResult.score + "/100 on our AI detector and cannot be published."
                     : "We detected some patterns common in AI writing. You can still publish, but consider reviewing your content."}
                 </p>
@@ -353,7 +354,7 @@ export default function Write() {
                 <ul className="space-y-1">
                   {aiResult.indicators.map((ind, i) => (
                     <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${aiResult.score >= 75 ? "bg-red-400" : "bg-amber-400"}`} />
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isHardBlock ? "bg-red-400" : "bg-amber-400"}`} />
                       {ind}
                     </li>
                   ))}
@@ -361,7 +362,7 @@ export default function Write() {
               </div>
             )}
 
-            {aiResult.score >= 75 ? (
+            {isHardBlock ? (
               <>
                 <p className="text-xs text-muted-foreground italic">If you believe this is a mistake, please rewrite your content in your own voice and try again.</p>
                 <button type="button" onClick={() => { setAiResult(null); setAiConfirmed(false); }}
