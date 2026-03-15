@@ -63,7 +63,7 @@ export default function Navbar() {
 
   const navLinks = [
     { to: "/", label: "Home" },
-    { to: "/marketplace", label: "Marketplace" },
+    { to: "/marketplace", label: "Marketplace", auth: true },
     { to: "/favorites", label: "Favorites", auth: true },
     { to: "/write", label: "Write", auth: true },
   ];
@@ -90,33 +90,35 @@ export default function Navbar() {
 
           {/* Right section */}
           <div className="flex items-center gap-2">
-            {/* Desktop search */}
-            <div className="hidden sm:flex items-center">
-              {searchOpen ? (
-                <form onSubmit={handleSearchSubmit} className="flex items-center gap-1">
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="Search..."
-                    className="w-48 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  <button type="submit" className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-primary">
-                    <Search className="h-4 w-4" />
+            {/* Desktop search — authenticated only */}
+            {isAuthenticated && (
+              <div className="hidden sm:flex items-center">
+                {searchOpen ? (
+                  <form onSubmit={handleSearchSubmit} className="flex items-center gap-1">
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      placeholder="Search..."
+                      className="w-48 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <button type="submit" className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-primary">
+                      <Search className="h-4 w-4" />
+                    </button>
+                    <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+                      className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </form>
+                ) : (
+                  <button onClick={() => setSearchOpen(true)}
+                    className={`p-2 rounded-full hover:bg-muted transition-colors ${isActive("/search") ? "text-primary" : "text-muted-foreground"}`}>
+                    <Search className="h-5 w-5" />
                   </button>
-                  <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
-                    className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground">
-                    <X className="h-4 w-4" />
-                  </button>
-                </form>
-              ) : (
-                <button onClick={() => setSearchOpen(true)}
-                  className={`p-2 rounded-full hover:bg-muted transition-colors ${isActive("/search") ? "text-primary" : "text-muted-foreground"}`}>
-                  <Search className="h-5 w-5" />
-                </button>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {isAuthenticated ? (
               <div className="hidden sm:flex items-center gap-2">
@@ -184,21 +186,23 @@ export default function Navbar() {
       {/* Mobile Menu */}
       {mobileOpen && (
         <div className="md:hidden border-t border-border bg-background px-4 pb-4 pt-2">
-          <form
-            onSubmit={handleSearchSubmit}
-            onClick={e => e.stopPropagation()}
-            className="relative mb-3"
-          >
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+          {isAuthenticated && (
+            <form
+              onSubmit={handleSearchSubmit}
               onClick={e => e.stopPropagation()}
-              placeholder="Search..."
-              className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </form>
+              className="relative mb-3"
+            >
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onClick={e => e.stopPropagation()}
+                placeholder="Search..."
+                className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </form>
+          )}
 
           <div className="space-y-1 mb-3">
             {navLinks.filter(l => !l.auth || isAuthenticated).map(l => (

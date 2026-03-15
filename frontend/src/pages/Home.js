@@ -2,16 +2,17 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { BookOpen, Heart, TrendingUp, Loader2, Eye, Lock } from "lucide-react";
+import { BookOpen, Heart, TrendingUp, Loader2, Eye, Lock, PenLine } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default function Home() {
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [stories, setStories] = useState([]);
   const [trending, setTrending] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!isAuthenticated) { setLoading(false); return; }
     Promise.all([
       apiFetch("/stories").catch(() => []),
       apiFetch("/stories/trending").catch(() => []),
@@ -20,57 +21,79 @@ export default function Home() {
       setTrending(trend.slice(0, 6));
       setLoading(false);
     });
-  }, []);
+  }, [isAuthenticated]);
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background py-24 px-4">
+          <div className="text-center max-w-2xl mx-auto">
+            <BookOpen className="h-16 w-16 text-primary mx-auto mb-6" />
+            <h1 className="font-serif text-5xl sm:text-6xl font-bold tracking-tight text-foreground mb-4">
+              PRaww Reads
+            </h1>
+            <p className="text-xl text-muted-foreground mb-10 max-w-xl mx-auto">
+              A literary community for authors and readers. Share stories, discover great writing, and connect with fellow book lovers.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link
+                to="/register"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground font-semibold px-8 py-3.5 hover:bg-primary/90 transition-colors text-base"
+              >
+                Create Free Account
+              </Link>
+              <Link
+                to="/login"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background font-semibold px-8 py-3.5 hover:bg-muted transition-colors text-base"
+              >
+                Log In
+              </Link>
+            </div>
+            <div className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
+              <div className="rounded-2xl border border-border bg-card p-5">
+                <BookOpen className="h-7 w-7 text-primary mb-3" />
+                <h3 className="font-serif font-bold text-base mb-1">Read Stories</h3>
+                <p className="text-sm text-muted-foreground">Discover original fiction, poetry, and more from writers in our community.</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-card p-5">
+                <PenLine className="h-7 w-7 text-primary mb-3" />
+                <h3 className="font-serif font-bold text-base mb-1">Write & Publish</h3>
+                <p className="text-sm text-muted-foreground">Share your stories with readers. Monetize your work with paid stories and donations.</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-card p-5">
+                <Heart className="h-7 w-7 text-primary mb-3" />
+                <h3 className="font-serif font-bold text-base mb-1">Connect</h3>
+                <p className="text-sm text-muted-foreground">Follow your favourite authors, comment on stories, and build a reading community.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
-      {/* Hero */}
-      <div className="bg-gradient-to-br from-primary/10 via-background to-background py-20 px-4">
+      <div className="bg-gradient-to-br from-primary/10 via-background to-background py-16 px-4">
         <div className="container mx-auto max-w-4xl text-center">
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <BookOpen className="h-12 w-12 text-primary" />
-          </div>
-          <h1 className="font-serif text-5xl sm:text-6xl font-bold tracking-tight text-foreground mb-4">
+          <h1 className="font-serif text-4xl sm:text-5xl font-bold tracking-tight text-foreground mb-4">
             PRaww Reads
           </h1>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Discover stories, share books, connect with readers. Your literary community awaits.
+          <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
+            Discover stories, share books, connect with readers.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            {isAuthenticated ? (
-              <>
-                <Link to="/marketplace" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground font-semibold px-6 py-3 hover:bg-primary/90 transition-colors">
-                  Browse Marketplace
-                </Link>
-                <Link to="/write" className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background font-semibold px-6 py-3 hover:bg-muted transition-colors">
-                  Start Writing
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link to="/register" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground font-semibold px-6 py-3 hover:bg-primary/90 transition-colors">
-                  Create Free Account
-                </Link>
-                <button onClick={() => document.getElementById("stories-section")?.scrollIntoView({ behavior: "smooth" })}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background font-semibold px-6 py-3 hover:bg-muted transition-colors">
-                  Browse Stories
-                </button>
-              </>
-            )}
+            <Link to="/marketplace" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground font-semibold px-6 py-3 hover:bg-primary/90 transition-colors">
+              Browse Marketplace
+            </Link>
+            <Link to="/write" className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background font-semibold px-6 py-3 hover:bg-muted transition-colors">
+              Start Writing
+            </Link>
           </div>
-
-          {/* Guest notice */}
-          {!isAuthenticated && (
-            <div className="mt-8 inline-flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-5 py-3 text-sm text-muted-foreground">
-              <BookOpen className="h-4 w-4 text-primary shrink-0" />
-              <span>You're browsing as a guest. <Link to="/register" className="text-primary font-medium hover:underline">Sign up free</Link> to read full stories, comment, follow writers, and more.</span>
-            </div>
-          )}
         </div>
       </div>
 
-      <div id="stories-section" className="container mx-auto max-w-7xl px-4 py-12">
-        {/* Trending */}
+      <div className="container mx-auto max-w-7xl px-4 py-12">
         {trending.length > 0 && (
           <section className="mb-14">
             <div className="flex items-center gap-2 mb-6">
@@ -79,13 +102,12 @@ export default function Home() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {trending.map(story => (
-                <StoryCard key={story.id} story={story} isAuthenticated={isAuthenticated} />
+                <StoryCard key={story.id} story={story} />
               ))}
             </div>
           </section>
         )}
 
-        {/* All Stories */}
         <section>
           <h2 className="font-serif text-2xl font-bold mb-6">Recent Stories</h2>
           {loading ? (
@@ -94,34 +116,20 @@ export default function Home() {
             <div className="text-center py-16 border-2 border-dashed border-border rounded-2xl">
               <BookOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
               <p className="text-muted-foreground">No stories yet. Be the first to write one!</p>
-              {isAuthenticated && (
-                <Link to="/write" className="inline-flex mt-4 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90">Start Writing</Link>
-              )}
+              <Link to="/write" className="inline-flex mt-4 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90">Start Writing</Link>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {stories.map(story => <StoryCard key={story.id} story={story} isAuthenticated={isAuthenticated} />)}
+              {stories.map(story => <StoryCard key={story.id} story={story} />)}
             </div>
           )}
         </section>
-
-        {/* Guest CTA at bottom */}
-        {!isAuthenticated && stories.length > 0 && (
-          <div className="mt-16 text-center py-12 rounded-2xl bg-primary/5 border border-primary/20">
-            <BookOpen className="h-10 w-10 mx-auto text-primary mb-3" />
-            <h3 className="font-serif text-2xl font-bold mb-2">Ready to dive deeper?</h3>
-            <p className="text-muted-foreground mb-6">Create a free account to read full stories, support writers, and join the community.</p>
-            <Link to="/register" className="inline-flex items-center gap-2 rounded-xl bg-primary text-primary-foreground font-semibold px-8 py-3 hover:bg-primary/90 transition-colors">
-              Sign Up Free
-            </Link>
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
-function StoryCard({ story, isAuthenticated }) {
+function StoryCard({ story }) {
   return (
     <Link to={`/stories/${story.id}`} className="group flex flex-col rounded-2xl border border-border bg-card hover:border-primary/40 hover:shadow-lg transition-all overflow-hidden">
       {story.cover_image_url ? (
@@ -151,9 +159,6 @@ function StoryCard({ story, isAuthenticated }) {
           <span className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{story.view_count || 0}</span>
           {story.created_at && <span className="ml-auto">{formatDistanceToNow(new Date(story.created_at))} ago</span>}
         </div>
-        {!isAuthenticated && (
-          <div className="mt-3 text-xs text-primary font-medium">Sign up to read →</div>
-        )}
       </div>
     </Link>
   );
