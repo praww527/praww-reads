@@ -27,6 +27,10 @@ export async function apiFetch(path, options = {}) {
     headers,
   });
   if (!res.ok) {
+    if (res.status === 401 && token) {
+      setToken(null);
+      window.dispatchEvent(new Event("auth:token-expired"));
+    }
     const errText = await res.text().catch(() => "{}");
     let err = {};
     try { err = JSON.parse(errText); } catch {}

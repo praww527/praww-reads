@@ -137,21 +137,32 @@ export default function StoryDetail() {
     hasRestoredRef.current = true;
     isRestoringRef.current = true;
 
-    const tryScroll = (attempts = 0) => {
-      const el = contentRef.current;
-      if (!el) return;
+    const el = contentRef.current;
+    if (!el) { isRestoringRef.current = false; return; }
+
+    const attemptScroll = () => {
       const total = el.scrollHeight - el.clientHeight;
       if (total > 5) {
         el.scrollTop = Math.round((scroll_pct / 100) * total);
-        setTimeout(() => { isRestoringRef.current = false; }, 200);
-      } else if (attempts < 10) {
-        setTimeout(() => tryScroll(attempts + 1), 100);
-      } else {
-        isRestoringRef.current = false;
+        setTimeout(() => { isRestoringRef.current = false; }, 100);
+        return true;
       }
+      return false;
     };
 
-    setTimeout(() => tryScroll(), 250);
+    if (!attemptScroll()) {
+      const observer = new ResizeObserver(() => {
+        if (attemptScroll()) {
+          observer.disconnect();
+        }
+      });
+      observer.observe(el);
+      const fallback = setTimeout(() => {
+        observer.disconnect();
+        isRestoringRef.current = false;
+      }, 3000);
+      return () => { observer.disconnect(); clearTimeout(fallback); };
+    }
   }, [activeChapter, isAuthenticated]);
 
   useEffect(() => {

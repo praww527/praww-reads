@@ -52,6 +52,15 @@ export function AuthProvider({ children }) {
 
   useEffect(() => { fetchUser(); }, [fetchUser]);
 
+  useEffect(() => {
+    const handleExpired = () => {
+      setToken(null);
+      setUser(null);
+    };
+    window.addEventListener("auth:token-expired", handleExpired);
+    return () => window.removeEventListener("auth:token-expired", handleExpired);
+  }, []);
+
   const login = async (email, password) => {
     const data = await apiFetch("/api/auth/login", {
       method: "POST",

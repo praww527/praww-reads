@@ -127,8 +127,8 @@ async def auto_follow_official(new_user_id: str):
                 "following_id": official["id"],
                 "created_at": datetime.now(timezone.utc).isoformat(),
             })
-    except Exception:
-        pass
+    except Exception as e:
+        logging.warning(f"auto_follow_official: failed to auto-follow official account for user {new_user_id}: {e}")
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
@@ -138,13 +138,20 @@ api_router = APIRouter(prefix="/api")
 
 # ── In-memory rate limiter (IP → list of timestamps) ───────────────────────
 _rate_store: dict = {}
+_RATE_STORE_MAX_KEYS = 5000
 
 def _rate_check(key: str, limit: int = 5, window_secs: int = 300) -> bool:
     """Returns True if request is allowed, False if rate limit exceeded."""
     now_ts = datetime.now(timezone.utc).timestamp()
-    timestamps = _rate_store.get(key, [])
-    timestamps = [t for t in timestamps if now_ts - t < window_secs]
+    cutoff = now_ts - window_secs
+    # Prune expired entries when the store grows too large to prevent memory leak
+    if len(_rate_store) > _RATE_STORE_MAX_KEYS:
+        stale_keys = [k for k, v in _rate_store.items() if not any(t > cutoff for t in v)]
+        for k in stale_keys:
+            del _rate_store[k]
+    timestamps = [t for t in _rate_store.get(key, []) if t > cutoff]
     if len(timestamps) >= limit:
+        _rate_store[key] = timestamps
         return False
     timestamps.append(now_ts)
     _rate_store[key] = timestamps
@@ -1007,7 +1014,10 @@ async def update_profile(data: UpdateProfileInput, current_user: dict = Depends(
         updates["username_changed_at"] = now.isoformat()
 
     updates["updated_at"] = now.isoformat()
-    await db.users.update_one({"id": current_user["id"]}, {"$set": updates})
+    try:
+        await db.users.update_one({"id": current_user["id"]}, {"$set": updates})
+    except DuplicateKeyError:
+        raise HTTPException(409, "That username is already taken. Please choose a different one.")
     updated = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
     return safe_user(updated)
 
@@ -1044,7 +1054,7 @@ async def follow_status(user_id: str, current_user: dict = Depends(get_current_u
 # ── Story Routes ─────────────────────────────────────────────────────────────
 @api_router.get("/stories")
 async def list_stories(current_user: Optional[dict] = Depends(get_optional_user)):
-    stories = await db.stories.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    stories = await db.stories.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
     for s in stories:
         author = await db.users.find_one({"id": s["author_id"]}, {"_id": 0, "first_name": 1, "last_name": 1, "username": 1, "is_verified": 1, "is_premium": 1})
         s["author_name"] = _get_display_name(author) if author else "Unknown"
@@ -1634,7 +1644,7 @@ async def delete_chapter(chapter_id: str, current_user: dict = Depends(get_curre
 # ── Marketplace (Books) Routes ───────────────────────────────────────────────
 @api_router.get("/books")
 async def list_books(current_user: Optional[dict] = Depends(get_optional_user)):
-    books = await db.books.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    books = await db.books.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
     for b in books:
         seller = await db.users.find_one({"id": b["seller_id"]}, {"_id": 0, "username": 1, "first_name": 1, "last_name": 1, "email": 1})
         b["seller_name"] = _get_display_name(seller) if seller else "Unknown"
@@ -1695,6 +1705,84 @@ async def mark_book_sold(book_id: str, current_user: dict = Depends(get_current_
         raise HTTPException(403, "Book not found or unauthorized")
     await db.books.update_one({"id": book_id}, {"$set": {"is_sold": not book.get("is_sold", False)}})
     updated = await db.books.find_one({"id": book_id}, {"_id": 0})
+    return updated
+
+class SwapRequestInput(BaseModel):
+    offered_book_id: str
+    message: Optional[str] = None
+
+@api_router.post("/books/{book_id}/swap-request")
+async def request_book_swap(book_id: str, data: SwapRequestInput, current_user: dict = Depends(get_current_user)):
+    """Propose a swap: offer your book in exchange for another user's book."""
+    target_book = await db.books.find_one({"id": book_id}, {"_id": 0})
+    if not target_book:
+        raise HTTPException(404, "Book not found")
+    if target_book.get("seller_id") == current_user["id"]:
+        raise HTTPException(400, "You cannot swap with your own listing")
+    if not target_book.get("allow_swap"):
+        raise HTTPException(400, "This book is not available for swapping")
+    if target_book.get("is_sold"):
+        raise HTTPException(400, "This book has already been sold")
+    offered_book = await db.books.find_one({"id": data.offered_book_id, "seller_id": current_user["id"]}, {"_id": 0})
+    if not offered_book:
+        raise HTTPException(404, "Offered book not found or does not belong to you")
+    if offered_book.get("is_sold"):
+        raise HTTPException(400, "Your offered book has already been sold")
+    existing = await db.swap_requests.find_one({
+        "target_book_id": book_id,
+        "offered_book_id": data.offered_book_id,
+        "status": "pending",
+    })
+    if existing:
+        raise HTTPException(409, "A pending swap request already exists for these books")
+    swap_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    swap_request = {
+        "id": swap_id,
+        "target_book_id": book_id,
+        "target_seller_id": target_book["seller_id"],
+        "offered_book_id": data.offered_book_id,
+        "requester_id": current_user["id"],
+        "message": (data.message or "").strip(),
+        "status": "pending",
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.swap_requests.insert_one(swap_request)
+    swap_request.pop("_id", None)
+    return swap_request
+
+@api_router.get("/swap-requests")
+async def get_my_swap_requests(current_user: dict = Depends(get_current_user)):
+    """Get all swap requests sent to or by the current user."""
+    uid = current_user["id"]
+    requests = await db.swap_requests.find(
+        {"$or": [{"requester_id": uid}, {"target_seller_id": uid}]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    return requests
+
+@api_router.patch("/swap-requests/{swap_id}")
+async def respond_to_swap_request(swap_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+    """Accept or decline a swap request (target seller only)."""
+    action = data.get("action")
+    if action not in ("accept", "decline"):
+        raise HTTPException(400, "action must be 'accept' or 'decline'")
+    swap = await db.swap_requests.find_one({"id": swap_id, "target_seller_id": current_user["id"]})
+    if not swap:
+        raise HTTPException(404, "Swap request not found or unauthorized")
+    if swap.get("status") != "pending":
+        raise HTTPException(400, "This swap request has already been resolved")
+    new_status = "accepted" if action == "accept" else "declined"
+    await db.swap_requests.update_one(
+        {"id": swap_id},
+        {"$set": {"status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if new_status == "accepted":
+        now = datetime.now(timezone.utc).isoformat()
+        await db.books.update_one({"id": swap["target_book_id"]}, {"$set": {"is_sold": True, "updated_at": now}})
+        await db.books.update_one({"id": swap["offered_book_id"]}, {"$set": {"is_sold": True, "updated_at": now}})
+    updated = await db.swap_requests.find_one({"id": swap_id}, {"_id": 0})
     return updated
 
 # ── Messaging Routes ─────────────────────────────────────────────────────────
@@ -2061,7 +2149,7 @@ async def get_dm_conversations(current_user: dict = Depends(get_current_user)):
     msgs = await db.direct_messages.find(
         {"$or": [{"sender_id": uid}, {"receiver_id": uid}]},
         {"_id": 0, "id": 1, "sender_id": 1, "receiver_id": 1, "created_at": 1, "is_read": 1}
-    ).sort("created_at", -1).to_list(500)
+    ).sort("created_at", -1).to_list(100)
     seen: dict = {}
     for m in msgs:
         other = m["receiver_id"] if m["sender_id"] == uid else m["sender_id"]
