@@ -4,7 +4,7 @@ import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
 import {
   BookOpen, Plus, Trash2, Loader2, ChevronDown, ChevronUp,
-  Camera, X, Lock, AlertCircle, Bot, ShieldCheck, AlertTriangle, CheckCircle2
+  Camera, X, Lock, AlertCircle, Bot, AlertTriangle
 } from "lucide-react";
 
 async function resizeImage(file, maxBytes = 2 * 1024 * 1024) {
@@ -75,7 +75,6 @@ export default function Write() {
 
   const [aiChecking, setAiChecking] = useState(false);
   const [aiResult, setAiResult] = useState(null);
-  const [aiConfirmed, setAiConfirmed] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) navigate("/login");
@@ -135,8 +134,6 @@ export default function Write() {
     } else if (!content.trim()) { setError("Please add some content to your story."); return; }
     if (isPaid && (!price || price <= 0)) { setError("Please set a valid price for your paid story."); return; }
 
-    if (aiConfirmed) { doPublish(); return; }
-
     // Build the full text for AI analysis
     const aiContent = useChapters
       ? chapters.map(c => c.content).join("\n\n")
@@ -182,7 +179,7 @@ export default function Write() {
         <p className="text-muted-foreground">Your story is now live.</p>
         <div className="flex gap-3">
           <button onClick={() => navigate(`/stories/${successId}`)} className="rounded-lg bg-primary text-primary-foreground px-5 py-2 font-medium hover:bg-primary/90">View Story</button>
-          <button onClick={() => { setTitle(""); setDescription(""); setContent(""); setCoverImageUrl(""); setCoverPreview(null); setChapters([{ title: "", content: "" }]); setIsPaid(false); setPrice(20); setSuccessId(null); setError(""); setAiResult(null); setAiConfirmed(false); }}
+          <button onClick={() => { setTitle(""); setDescription(""); setContent(""); setCoverImageUrl(""); setCoverPreview(null); setChapters([{ title: "", content: "" }]); setIsPaid(false); setPrice(20); setSuccessId(null); setError(""); setAiResult(null); }}
             className="rounded-lg border border-border px-5 py-2 font-medium hover:bg-muted">Write Another</button>
         </div>
       </div>
@@ -311,7 +308,7 @@ export default function Write() {
         ) : (
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Story Content <span className="text-destructive">*</span></label>
-            <textarea value={content} onChange={e => { setContent(e.target.value); if (error) setError(""); if (aiResult) { setAiResult(null); setAiConfirmed(false); } }}
+            <textarea value={content} onChange={e => { setContent(e.target.value); if (error) setError(""); if (aiResult) { setAiResult(null); } }}
               placeholder="Start writing your story..." rows={16}
               className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none leading-relaxed" />
           </div>
@@ -365,7 +362,7 @@ export default function Write() {
             {isHardBlock ? (
               <>
                 <p className="text-xs text-muted-foreground italic">If you believe this is a mistake, please rewrite your content in your own voice and try again.</p>
-                <button type="button" onClick={() => { setAiResult(null); setAiConfirmed(false); }}
+                <button type="button" onClick={() => { setAiResult(null); }}
                   className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-semibold hover:bg-muted transition-colors">
                   Go Back &amp; Edit My Story
                 </button>
@@ -374,11 +371,11 @@ export default function Write() {
               <>
                 <p className="text-xs text-muted-foreground italic">AI detection is not 100% accurate. If your content is genuinely your own, you can still publish it.</p>
                 <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={() => { setAiResult(null); setAiConfirmed(false); }}
+                  <button type="button" onClick={() => { setAiResult(null); }}
                     className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold hover:bg-muted transition-colors">
                     Cancel — Edit My Story
                   </button>
-                  <button type="button" onClick={() => { setAiConfirmed(true); doPublish(); }}
+                  <button type="button" onClick={() => doPublish()}
                     disabled={submitting}
                     className="flex-1 rounded-xl bg-amber-500 hover:bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
                     {submitting && <Loader2 className="h-4 w-4 animate-spin" />}

@@ -48,16 +48,16 @@ function AppShell() {
           {/* Protected routes — require login */}
           <Route path="/marketplace" element={<PrivateRoute><Marketplace /></PrivateRoute>} />
           <Route path="/books/:id" element={<PrivateRoute><BookDetail /></PrivateRoute>} />
-          <Route path="/stories/:id" element={<PrivateRoute><StoryDetail /></PrivateRoute>} />
+          <Route path="/stories/:id" element={<StoryDetail />} />
           <Route path="/stories/:id/edit" element={<PrivateRoute><EditStory /></PrivateRoute>} />
           <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
           <Route path="/messages/:userId" element={<PrivateRoute><Conversation /></PrivateRoute>} />
           <Route path="/write" element={<PrivateRoute><Write /></PrivateRoute>} />
           <Route path="/profile" element={<Navigate to="/profile/me" replace />} />
-          <Route path="/profile/:userId" element={<PrivateRoute><Profile /></PrivateRoute>} />
+          <Route path="/profile/:userId" element={<Profile />} />
           <Route path="/favorites" element={<PrivateRoute><Favorites /></PrivateRoute>} />
           <Route path="/inbox" element={<Navigate to="/messages" replace />} />
-          <Route path="/search" element={<PrivateRoute><SearchPage /></PrivateRoute>} />
+          <Route path="/search" element={<SearchPage />} />
           <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
           <Route path="/earnings" element={<PrivateRoute><Navigate to="/settings?tab=earnings" replace /></PrivateRoute>} />
 
