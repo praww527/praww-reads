@@ -1056,7 +1056,9 @@ PAYFAST_MERCHANT_KEY = os.environ.get("PAYFAST_MERCHANT_KEY", "46f0cd694581a")
 PAYFAST_PASSPHRASE   = os.environ.get("PAYFAST_PASSPHRASE",   "")
 PAYFAST_SANDBOX      = os.environ.get("PAYFAST_SANDBOX", "true").lower() == "true"
 PAYFAST_BASE         = "https://sandbox.payfast.co.za" if PAYFAST_SANDBOX else "https://www.payfast.co.za"
-APP_URL              = os.environ.get("APP_URL", "").rstrip("/")
+_replit_domain       = os.environ.get("REPLIT_DEV_DOMAIN", "")
+APP_URL              = (os.environ.get("APP_URL", "").rstrip("/") or
+                        (f"https://{_replit_domain}" if _replit_domain else ""))
 
 def _payfast_sig(fields: list) -> str:
     params = [(k, v) for k, v in fields if v not in (None, "")]
@@ -1095,7 +1097,7 @@ async def initiate_donation(data: PayFastDonationInput, current_user: dict = Dep
         "amount": data.amount, "writer_amount": writer_amount,
         "platform_amount": platform_amount, "status": "pending", "created_at": now,
     })
-    base = APP_URL or "https://4b446737-c826-42f3-ac4b-97de198c5de0-00-3jq0rtupfnu07.picard.replit.dev"
+    base = APP_URL
     name_parts = (current_user.get("name") or current_user["username"]).split(maxsplit=1)
     item_name = f"Donation – {story.get('title', 'Story')[:80]}"
     fields = [
@@ -1154,7 +1156,7 @@ async def initiate_purchase(data: PayFastPurchaseInput, current_user: dict = Dep
         "amount": price, "writer_amount": writer_amount,
         "platform_amount": platform_amount, "status": "pending", "created_at": now,
     })
-    base = APP_URL or "https://4b446737-c826-42f3-ac4b-97de198c5de0-00-3jq0rtupfnu07.picard.replit.dev"
+    base = APP_URL
     name_parts = (current_user.get("name") or current_user["username"]).split(maxsplit=1)
     item_name = f"Story Purchase – {story.get('title', 'Story')[:75]}"
     fields = [

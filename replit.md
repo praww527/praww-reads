@@ -120,3 +120,5 @@ Then restart the workflow.
 - **Route ordering bug**: Moved `/api/profile/username-status` route before the `/api/profile/{user_id}` catch-all route in `server.py` — previously FastAPI was treating "username-status" as a user ID
 - **Verification code expiry**: Changed from 60 seconds to 10 minutes across all email verification flows (registration, email change, phone verify, password change, password reset) — 60 seconds was too short for email delivery
 - **Deployment build command**: Updated to `npm install && CI=false node_modules/.bin/craco build` to ensure dependencies are installed before building
+- **httpx missing**: Backend crashed on startup because `httpx` (needed for PayFast ITN validation) was not installed. Added to requirements.txt and installed.
+- **APP_URL stale fallback**: PayFast return/notify URLs used a hardcoded old Replit domain. Now computed dynamically from `REPLIT_DEV_DOMAIN` env var (or `APP_URL` env var if set for production).
