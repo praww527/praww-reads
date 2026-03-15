@@ -1048,7 +1048,7 @@ async def get_story(story_id: str, request: Request, current_user: Optional[dict
         if story.get("author_id") == current_user["id"]:
             story["user_purchased"] = True
         else:
-            purchase = await db.story_purchases.find_one({"story_id": story_id, "buyer_id": current_user["id"]})
+            purchase = await db.story_purchases.find_one({"story_id": story_id, "buyer_id": current_user["id"], "status": "completed"})
             story["user_purchased"] = bool(purchase)
     # Track view
     viewer_key = current_user["id"] if current_user else request.client.host
@@ -1313,8 +1313,8 @@ async def payfast_itn(request: Request):
 # ── Wallet & Earnings ─────────────────────────────────────────────────────────
 @api_router.get("/wallet")
 async def get_wallet(current_user: dict = Depends(get_current_user)):
-    donations = await db.donations.find({"writer_id": current_user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
-    purchases = await db.story_purchases.find({"writer_id": current_user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    donations = await db.donations.find({"writer_id": current_user["id"], "status": "completed"}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    purchases = await db.story_purchases.find({"writer_id": current_user["id"], "status": "completed"}, {"_id": 0}).sort("created_at", -1).to_list(100)
     withdrawals = await db.withdrawals.find({"user_id": current_user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(50)
     total_donation_income = sum(d.get("writer_amount", 0) for d in donations)
     total_sales_income = sum(p.get("writer_amount", 0) for p in purchases)
