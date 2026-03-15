@@ -146,7 +146,7 @@ export default function RegisterPage() {
               <h2 className="font-serif text-xl font-bold">Check your email</h2>
               <p className="text-sm text-muted-foreground">
                 We sent a 6-digit code to <span className="font-medium text-foreground">{verifyEmail_}</span>.
-                It expires in 10 minutes.
+                It expires in 60 seconds.
               </p>
             </div>
 
@@ -196,28 +196,28 @@ export default function RegisterPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">First Name</label>
-                  <input data-testid="register-firstname" type="text" placeholder="First name" value={firstName} onChange={e => setFirstName(e.target.value)}
+                  <input data-testid="register-firstname" type="text" autoComplete="given-name" placeholder="First name" value={firstName} onChange={e => setFirstName(e.target.value)}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Last Name</label>
-                  <input data-testid="register-lastname" type="text" placeholder="Last name" value={lastName} onChange={e => setLastName(e.target.value)}
+                  <input data-testid="register-lastname" type="text" autoComplete="family-name" placeholder="Last name" value={lastName} onChange={e => setLastName(e.target.value)}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Email</label>
-                <input data-testid="register-email" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)}
+                <input data-testid="register-email" type="email" autoComplete="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Password</label>
-                <input data-testid="register-password" type="password" placeholder="At least 6 characters" value={password} onChange={e => setPassword(e.target.value)}
+                <input data-testid="register-password" type="password" autoComplete="new-password" placeholder="At least 6 characters" value={password} onChange={e => setPassword(e.target.value)}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Confirm Password</label>
-                <input data-testid="register-confirm-password" type="password" placeholder="••••••••" value={confirm} onChange={e => setConfirm(e.target.value)}
+                <input data-testid="register-confirm-password" type="password" autoComplete="new-password" placeholder="••••••••" value={confirm} onChange={e => setConfirm(e.target.value)}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
 

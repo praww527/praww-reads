@@ -652,7 +652,7 @@ export default function Settings() {
             ) : (
               <form onSubmit={handleVerifyPhone} className="space-y-4">
                 {phoneSuccess && <p className="text-sm text-green-600 flex items-center gap-1.5"><Check className="h-4 w-4" />{phoneSuccess}</p>}
-                <p className="text-sm text-muted-foreground">A code was sent to <strong>{user?.email}</strong>. Enter it within 10 minutes to verify <strong>{newPhone}</strong>.</p>
+                <p className="text-sm text-muted-foreground">A code was sent to <strong>{user?.email}</strong>. Enter it within 60 seconds to verify <strong>{newPhone}</strong>.</p>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Verification Code</label>
                   <CodeInput value={phoneCode} onChange={setPhoneCode} />
@@ -703,7 +703,7 @@ export default function Settings() {
             ) : (
               <form onSubmit={handleVerifyEmailChange} className="space-y-4">
                 {emailSuccess && <p className="text-sm text-green-600 flex items-center gap-1.5"><Check className="h-4 w-4" />{emailSuccess}</p>}
-                <p className="text-sm text-muted-foreground">A code was sent to <strong>{newEmail}</strong>. Enter it within 10 minutes.</p>
+                <p className="text-sm text-muted-foreground">A code was sent to <strong>{newEmail}</strong>. Enter it within 60 seconds.</p>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Verification Code</label>
                   <CodeInput value={emailCode} onChange={setEmailCode} />

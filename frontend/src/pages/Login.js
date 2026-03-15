@@ -169,7 +169,7 @@ export default function LoginPage() {
                     </p>
                   )}
                   <p className="text-sm text-muted-foreground mt-1">
-                    Code sent to <strong>{forgotEmail}</strong>. Enter it within 10 minutes.
+                    Code sent to <strong>{forgotEmail}</strong>. Enter it within 60 seconds.
                   </p>
                 </div>
                 <div className="space-y-1.5">
@@ -222,7 +222,7 @@ export default function LoginPage() {
             <form onSubmit={handleLogin} className="space-y-4" noValidate>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Email</label>
-                <input data-testid="login-email" type="email" placeholder="you@example.com"
+                <input data-testid="login-email" type="email" autoComplete="email" placeholder="you@example.com"
                   value={email} onChange={e => setEmail(e.target.value)} className={inputClass} />
               </div>
               <div className="space-y-1.5">
@@ -233,7 +233,7 @@ export default function LoginPage() {
                     Forgot password?
                   </button>
                 </div>
-                <input data-testid="login-password" type="password" placeholder="••••••••"
+                <input data-testid="login-password" type="password" autoComplete="current-password" placeholder="••••••••"
                   value={password} onChange={e => setPassword(e.target.value)} className={inputClass} />
               </div>
 
