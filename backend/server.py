@@ -1639,7 +1639,29 @@ async def create_chapter(story_id: str, data: CreateChapterInput, current_user: 
     chapter = {"id": chapter_id, "story_id": story_id, "title": data.title, "content": data.content, "order_index": data.order_index if data.order_index is not None else count, "created_at": now, "updated_at": now}
     await db.chapters.insert_one(chapter)
     chapter.pop("_id", None)
+    asyncio.create_task(_notify_chapter_viewers(
+        story_id, story.get("title", "a story"), data.title, current_user["id"]
+    ))
     return chapter
+
+async def _notify_chapter_viewers(story_id: str, story_title: str, chapter_title: str, author_id: str):
+    import re
+    _uuid_re = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.I)
+    viewers = await db.story_views.find({"story_id": story_id}, {"viewer_key": 1, "_id": 0}).to_list(1000)
+    notified: set = set()
+    for v in viewers:
+        uid = v.get("viewer_key", "")
+        if not _uuid_re.match(uid):
+            continue
+        if uid == author_id or uid in notified:
+            continue
+        notified.add(uid)
+        asyncio.create_task(send_push_notification(
+            uid,
+            f"New chapter in \"{story_title}\"",
+            f"\"{chapter_title}\" has just been added!",
+            f"/stories/{story_id}",
+        ))
 
 @api_router.patch("/chapters/{chapter_id}")
 async def update_chapter(chapter_id: str, data: UpdateChapterInput, current_user: dict = Depends(get_current_user)):

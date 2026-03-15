@@ -420,6 +420,12 @@ export default function StoryDetail() {
             >
               <Pencil className="h-3.5 w-3.5" /> Edit
             </Link>
+            <Link
+              to={`/stories/${id}/add-chapter`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 text-primary px-3 py-1.5 text-sm font-medium hover:bg-primary/10 transition-colors"
+            >
+              + Add Chapter
+            </Link>
             {confirmDelete ? (
               <div className="flex items-center gap-2 ml-auto">
                 <span className="text-xs text-destructive font-medium">Delete this story?</span>

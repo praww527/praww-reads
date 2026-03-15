@@ -9,6 +9,7 @@ import BookDetail from "./pages/BookDetail";
 import StoryDetail from "./pages/StoryDetail";
 import Write from "./pages/Write";
 import EditStory from "./pages/EditStory";
+import AddChapter from "./pages/AddChapter";
 import Messages from "./pages/Messages";
 import Conversation from "./pages/Conversation";
 import Profile from "./pages/Profile";
@@ -50,6 +51,7 @@ function AppShell() {
           <Route path="/books/:id" element={<PrivateRoute><BookDetail /></PrivateRoute>} />
           <Route path="/stories/:id" element={<PrivateRoute><StoryDetail /></PrivateRoute>} />
           <Route path="/stories/:id/edit" element={<PrivateRoute><EditStory /></PrivateRoute>} />
+          <Route path="/stories/:id/add-chapter" element={<PrivateRoute><AddChapter /></PrivateRoute>} />
           <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
           <Route path="/messages/:userId" element={<PrivateRoute><Conversation /></PrivateRoute>} />
           <Route path="/write" element={<PrivateRoute><Write /></PrivateRoute>} />
