@@ -24,6 +24,7 @@ export default function Conversation() {
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
   const [privateKey, setPrivateKey] = useState(null);
   const [recipientPublicKey, setRecipientPublicKey] = useState(null);
   const [keyError, setKeyError] = useState("");
@@ -138,7 +139,8 @@ export default function Conversation() {
       setDecryptedCache(prev => ({ ...prev, [msg.id]: text.trim() }));
       setText("");
     } catch (err) {
-      alert(err.message || "Failed to send message");
+      setSendError(err.message || "Failed to send message");
+      setTimeout(() => setSendError(""), 4000);
     } finally {
       setSending(false);
     }
@@ -226,6 +228,11 @@ export default function Conversation() {
       </div>
 
       {/* Input */}
+      {sendError && (
+        <div className="mb-2 shrink-0 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive px-4 py-2 text-sm">
+          {sendError}
+        </div>
+      )}
       <form onSubmit={handleSend} className="mt-3 shrink-0 flex gap-2 items-end">
         <input
           value={text}

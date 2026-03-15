@@ -13,6 +13,7 @@ export default function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [unreadDMs, setUnreadDMs] = useState(0);
+  const [unreadMarket, setUnreadMarket] = useState(0);
   const searchInputRef = useRef(null);
   const unreadPollRef = useRef(null);
 
@@ -25,14 +26,17 @@ export default function Navbar() {
   }, [location.pathname]);
 
   useEffect(() => {
-    if (!isAuthenticated) { setUnreadDMs(0); return; }
+    if (!isAuthenticated) { setUnreadDMs(0); setUnreadMarket(0); return; }
     function fetchUnread() {
       apiFetch("/dm/unread-count").then(r => setUnreadDMs(r.count || 0)).catch(() => {});
+      apiFetch("/messages/unread-count").then(r => setUnreadMarket(r.count || 0)).catch(() => {});
     }
     fetchUnread();
     unreadPollRef.current = setInterval(fetchUnread, 15000);
     return () => clearInterval(unreadPollRef.current);
   }, [isAuthenticated]);
+
+  const totalUnread = unreadDMs + unreadMarket;
 
   function handleSearchSubmit(e) {
     e.preventDefault();
@@ -118,9 +122,9 @@ export default function Navbar() {
               <div className="hidden sm:flex items-center gap-2">
                 <Link to="/messages" className={`relative p-2 rounded-full hover:bg-muted transition-colors ${isActive("/messages") ? "text-primary" : "text-muted-foreground"}`}>
                   <MessageCircle className="h-5 w-5" />
-                  {unreadDMs > 0 && (
+                  {totalUnread > 0 && (
                     <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-0.5">
-                      {unreadDMs > 9 ? "9+" : unreadDMs}
+                      {totalUnread > 9 ? "9+" : totalUnread}
                     </span>
                   )}
                 </Link>
@@ -209,7 +213,7 @@ export default function Navbar() {
             <div className="border-t border-border pt-3 space-y-1">
               <Link to="/messages" className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">
                 <span>Messages</span>
-                {unreadDMs > 0 && <span className="bg-primary text-primary-foreground text-xs font-bold px-1.5 py-0.5 rounded-full">{unreadDMs}</span>}
+                {totalUnread > 0 && <span className="bg-primary text-primary-foreground text-xs font-bold px-1.5 py-0.5 rounded-full">{totalUnread}</span>}
               </Link>
               <Link to="/profile/me" className="block px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">Profile</Link>
               <Link to="/settings" className="block px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50">Settings</Link>

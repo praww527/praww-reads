@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { ArrowLeft, BookOpen, Pencil, Loader2, Users, Camera, X, Check, BadgeCheck, Lock, MessageCircle } from "lucide-react";
+import { ArrowLeft, BookOpen, Pencil, Loader2, Users, Camera, X, Check, BadgeCheck, Lock, MessageCircle, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 async function resizeImage(file, maxBytes = 2 * 1024 * 1024) {
@@ -41,6 +41,7 @@ export default function Profile() {
   const [imagePreview, setImagePreview] = useState("");
   const [imageProcessing, setImageProcessing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [usernameStatus, setUsernameStatus] = useState({ can_change: true, days_left: 0 });
   const fileRef = useRef(null);
 
@@ -106,7 +107,7 @@ export default function Profile() {
       await refreshUser();
       setEditOpen(false);
     } catch (err) {
-      alert(err.message);
+      setSaveError(err.message || "Failed to save profile. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -356,8 +357,13 @@ export default function Profile() {
                   placeholder="Tell readers a little about yourself..." rows={3}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
               </div>
+              {saveError && (
+                <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive px-3 py-2 text-sm">
+                  <AlertCircle className="h-4 w-4 shrink-0" />{saveError}
+                </div>
+              )}
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setEditOpen(false)} className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted transition-colors">Cancel</button>
+                <button type="button" onClick={() => { setEditOpen(false); setSaveError(""); }} className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted transition-colors">Cancel</button>
                 <button data-testid="save-profile-btn" type="submit" disabled={saving || imageProcessing}
                   className="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center gap-2">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}

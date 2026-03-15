@@ -13,7 +13,6 @@ import Messages from "./pages/Messages";
 import Conversation from "./pages/Conversation";
 import Profile from "./pages/Profile";
 import Favorites from "./pages/Favorites";
-import Inbox from "./pages/Inbox";
 import SearchPage from "./pages/Search";
 import Settings from "./pages/Settings";
 import Earnings from "./pages/Earnings";
@@ -35,10 +34,10 @@ function AppShell() {
           <Route path="/messages" element={<Messages />} />
           <Route path="/messages/:userId" element={<Conversation />} />
           <Route path="/write" element={<Write />} />
-          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile" element={<Navigate to="/profile/me" replace />} />
           <Route path="/profile/:userId" element={<Profile />} />
           <Route path="/favorites" element={<Favorites />} />
-          <Route path="/inbox" element={<Inbox />} />
+          <Route path="/inbox" element={<Navigate to="/messages" replace />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/earnings" element={<Navigate to="/settings?tab=earnings" replace />} />

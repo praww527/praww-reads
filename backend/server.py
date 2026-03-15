@@ -1456,6 +1456,14 @@ async def get_book_messages(book_id: str, current_user: dict = Depends(get_curre
     await db.messages.update_many({"book_id": book_id, "receiver_id": current_user["id"]}, {"$set": {"is_read": True}})
     return msgs
 
+@api_router.get("/messages/unread-count")
+async def get_marketplace_unread_count(current_user: dict = Depends(get_current_user)):
+    count = await db.messages.count_documents({
+        "receiver_id": current_user["id"],
+        "is_read": False,
+    })
+    return {"count": count}
+
 @api_router.get("/messages/inbox")
 async def get_inbox(current_user: dict = Depends(get_current_user)):
     msgs = await db.messages.find(
