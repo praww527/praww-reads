@@ -137,22 +137,33 @@ export default function Write() {
 
     if (aiConfirmed) { doPublish(); return; }
 
+    // Build the full text for AI analysis
+    const aiContent = useChapters
+      ? chapters.map(c => c.content).join("\n\n")
+      : content;
+
+    if (!aiContent.trim() || aiContent.trim().split(/\s+/).length < 60) {
+      doPublish();
+      return;
+    }
+
     setAiChecking(true);
     setAiResult(null);
     try {
       const result = await apiFetch("/stories/check-ai", {
         method: "POST",
         body: JSON.stringify({
-          content: useChapters ? "" : content,
-          chapters: useChapters ? chapters : null,
+          content: aiContent,
+          chapters: null,
         }),
       });
       setAiResult(result);
       if (result.verdict === "likely_human" || result.verdict === "too_short") {
         doPublish();
       }
-    } catch {
-      doPublish();
+    } catch (err) {
+      // AI check failed — do NOT silently publish; warn the user
+      setError("Content check failed (" + (err.message || "server error") + "). Please try again.");
     } finally {
       setAiChecking(false);
     }

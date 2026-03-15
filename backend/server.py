@@ -85,6 +85,20 @@ db = client[DB_NAME]
 app = FastAPI(title="PRaww Reads API")
 api_router = APIRouter(prefix="/api")
 
+# ── In-memory rate limiter (IP → list of timestamps) ───────────────────────
+_rate_store: dict = {}
+
+def _rate_check(key: str, limit: int = 5, window_secs: int = 300) -> bool:
+    """Returns True if request is allowed, False if rate limit exceeded."""
+    now_ts = datetime.now(timezone.utc).timestamp()
+    timestamps = _rate_store.get(key, [])
+    timestamps = [t for t in timestamps if now_ts - t < window_secs]
+    if len(timestamps) >= limit:
+        return False
+    timestamps.append(now_ts)
+    _rate_store[key] = timestamps
+    return True
+
 replit_dev_domain = os.environ.get("REPLIT_DEV_DOMAIN", "")
 default_origins = "https://prawwfront.onrender.com,http://localhost:5000"
 if replit_dev_domain:
@@ -98,6 +112,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response as StarletteResponse
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -316,8 +344,12 @@ class ResetPasswordInput(BaseModel):
 
 # ── Auth Routes ─────────────────────────────────────────────────────────────
 @api_router.post("/auth/register")
-async def register(data: RegisterInput, response: Response):
+async def register(data: RegisterInput, response: Response, request: Request):
     """Step 1: validate inputs. If SMTP configured, send verification code. Otherwise create account directly."""
+    client_ip = request.client.host if request.client else "unknown"
+    # Rate limit: max 5 registrations per IP per hour
+    if not _rate_check(f"register:{client_ip}", limit=5, window_secs=3600):
+        raise HTTPException(429, "Too many registration attempts. Please try again later.")
     email = data.email.strip().lower()
     if not email or "@" not in email:
         raise HTTPException(400, "Valid email required")
@@ -461,8 +493,13 @@ async def verify_email(data: VerifyEmailInput, response: Response):
     return result
 
 @api_router.post("/auth/login")
-async def login(data: LoginInput, response: Response):
-    email = data.email.strip().lower()
+async def login(data: LoginInput, response: Response, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    email_key = data.email.strip().lower()
+    # Rate limit: max 10 login attempts per IP per 15 minutes to block brute force
+    if not _rate_check(f"login:{client_ip}", limit=10, window_secs=900):
+        raise HTTPException(429, "Too many login attempts. Please wait 15 minutes before trying again.")
+    email = email_key
     user = await db.users.find_one({"email": email}, {"_id": 0})
     if not user or not verify_password(data.password, user.get("password_hash", "")):
         raise HTTPException(401, "Invalid email or password")
@@ -478,14 +515,9 @@ async def logout(response: Response):
     return {"message": "Logged out"}
 
 @api_router.post("/auth/change-password")
-async def change_password(data: ChangePasswordInput, current_user: dict = Depends(get_current_user)):
-    if not verify_password(data.current_password, current_user.get("password_hash", "")):
-        raise HTTPException(400, "Current password is incorrect")
-    if len(data.new_password) < 6:
-        raise HTTPException(400, "New password must be at least 6 characters")
-    new_hash = hash_password(data.new_password)
-    await db.users.update_one({"id": current_user["id"]}, {"$set": {"password_hash": new_hash, "updated_at": datetime.now(timezone.utc).isoformat()}})
-    return {"message": "Password changed successfully"}
+async def change_password_legacy(data: ChangePasswordInput, current_user: dict = Depends(get_current_user)):
+    """Legacy endpoint — kept for compatibility. Use /auth/request-password-change-code + /auth/verify-and-change-password instead."""
+    raise HTTPException(410, "This endpoint is no longer supported. Use the new password change flow: request a verification code from Settings.")
 
 @api_router.post("/auth/request-email-change")
 async def request_email_change(data: RequestEmailChangeInput, current_user: dict = Depends(get_current_user)):
@@ -501,7 +533,7 @@ async def request_email_change(data: RequestEmailChangeInput, current_user: dict
     if existing:
         raise HTTPException(409, "An account with this email already exists")
     code = generate_code()
-    expires = datetime.now(timezone.utc) + timedelta(minutes=10)
+    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
     await db.pending_email_changes.update_one(
         {"user_id": current_user["id"]},
         {"$set": {
@@ -568,8 +600,21 @@ async def update_backup_contact(data: UpdateBackupContactInput, current_user: di
 @api_router.post("/auth/request-premium")
 async def request_premium(data: RequestPremiumInput, current_user: dict = Depends(get_current_user)):
     """Record a premium subscription request. Plan: 'monthly' (R59) or 'semi' (R29 for 6 months)."""
+    if current_user.get("is_premium"):
+        raise HTTPException(400, "You already have an active premium account.")
     if data.plan not in ("monthly", "semi"):
         raise HTTPException(400, "Plan must be 'monthly' or 'semi'")
+    # Block duplicate pending requests submitted within 24 hours
+    existing = await db.premium_requests.find_one({"user_id": current_user["id"], "status": "pending"})
+    if existing:
+        req_time_str = existing.get("requested_at", "")
+        if req_time_str:
+            req_time = datetime.fromisoformat(req_time_str)
+            if req_time.tzinfo is None:
+                req_time = req_time.replace(tzinfo=timezone.utc)
+            hours_since = (datetime.now(timezone.utc) - req_time).total_seconds() / 3600
+            if hours_since < 24:
+                raise HTTPException(400, "You already have a pending premium request. We will contact you at your email shortly.")
     price = PREMIUM_MONTHLY_ZAR if data.plan == "monthly" else PREMIUM_SEMI_ZAR
     months = 1 if data.plan == "monthly" else PREMIUM_SEMI_MONTHS
     now = datetime.now(timezone.utc)
@@ -725,15 +770,19 @@ async def verify_and_change_password(data: VerifyAndChangePasswordInput, current
     return {"message": "Password changed successfully"}
 
 @api_router.post("/auth/forgot-password")
-async def forgot_password(data: ForgotPasswordInput):
+async def forgot_password(data: ForgotPasswordInput, request: Request):
     """Send a password reset code to the given email."""
+    # Rate limit: max 3 forgot-password attempts per IP per 15 minutes
+    client_ip = request.client.host if request.client else "unknown"
+    if not _rate_check(f"forgot:{client_ip}", limit=3, window_secs=900):
+        raise HTTPException(429, "Too many password reset attempts. Please wait 15 minutes before trying again.")
     email = data.email.strip().lower()
     user = await db.users.find_one({"email": email}, {"_id": 0})
     # Always return success to prevent email enumeration
     if not user:
         return {"message": "If an account with that email exists, a reset code has been sent."}
     code = generate_code()
-    expires = datetime.now(timezone.utc) + timedelta(minutes=10)
+    expires = datetime.now(timezone.utc) + timedelta(seconds=60)
     await db.password_reset_codes.update_one(
         {"email": email},
         {"$set": {
