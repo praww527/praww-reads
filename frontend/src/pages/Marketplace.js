@@ -49,6 +49,8 @@ export default function Marketplace() {
 
   const [form, setForm] = useState({ title: "", author: "", price: "", condition: "good", allow_swap: false, swap_for: "", image_url: "" });
   const [formError, setFormError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [soldError, setSoldError] = useState("");
 
   useEffect(() => { fetchBooks(); }, []);
 
@@ -56,6 +58,8 @@ export default function Marketplace() {
     try {
       const data = await apiFetch("/books");
       setBooks(data);
+    } catch {
+      setBooks([]);
     } finally {
       setLoading(false);
     }
@@ -111,14 +115,25 @@ export default function Marketplace() {
 
   async function handleDelete() {
     if (!deletingId) return;
-    await apiFetch(`/api/books/${deletingId}`, { method: "DELETE" });
-    setBooks(bs => bs.filter(b => b.id !== deletingId));
-    setDeletingId(null);
+    setDeleteError("");
+    try {
+      await apiFetch(`/api/books/${deletingId}`, { method: "DELETE" });
+      setBooks(bs => bs.filter(b => b.id !== deletingId));
+      setDeletingId(null);
+    } catch (err) {
+      setDeleteError(err.message || "Failed to delete. Please try again.");
+    }
   }
 
   async function handleMarkSold(book) {
-    const updated = await apiFetch(`/api/books/${book.id}/sold`, { method: "POST" });
-    setBooks(bs => bs.map(b => b.id === updated.id ? updated : b));
+    setSoldError("");
+    try {
+      const updated = await apiFetch(`/api/books/${book.id}/sold`, { method: "POST" });
+      setBooks(bs => bs.map(b => b.id === updated.id ? updated : b));
+    } catch (err) {
+      setSoldError(err.message || "Failed to update listing. Please try again.");
+      setTimeout(() => setSoldError(""), 4000);
+    }
   }
 
   return (
@@ -377,14 +392,26 @@ export default function Marketplace() {
         </div>
       )}
 
+      {/* Sold error toast */}
+      {soldError && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-xl bg-destructive text-destructive-foreground px-5 py-3 text-sm font-medium shadow-lg">
+          {soldError}
+        </div>
+      )}
+
       {/* Delete Confirm */}
       {deletingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="glass-panel p-6 max-w-sm w-full">
             <h3 className="font-serif text-xl font-bold mb-2">Delete Book</h3>
             <p className="text-muted-foreground text-sm mb-5">Are you sure? This cannot be undone.</p>
+            {deleteError && (
+              <div className="mb-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive px-3 py-2.5 text-sm">
+                {deleteError}
+              </div>
+            )}
             <div className="flex gap-3">
-              <button onClick={() => setDeletingId(null)} className="flex-1 rounded-2xl border border-border py-2.5 text-sm hover:bg-white/30 transition-colors">Cancel</button>
+              <button onClick={() => { setDeletingId(null); setDeleteError(""); }} className="flex-1 rounded-2xl border border-border py-2.5 text-sm hover:bg-white/30 transition-colors">Cancel</button>
               <button onClick={handleDelete} className="flex-1 rounded-2xl bg-destructive text-destructive-foreground py-2.5 text-sm font-semibold hover:bg-destructive/90 transition-colors">Delete</button>
             </div>
           </div>

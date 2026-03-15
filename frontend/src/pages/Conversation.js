@@ -111,7 +111,7 @@ export default function Conversation() {
     if (messages.length > 0 && privateKey) {
       decryptAll(messages, privateKey);
     }
-  }, [messages, privateKey]);
+  }, [messages, privateKey, user]);
 
   async function handleSend(e) {
     e.preventDefault();

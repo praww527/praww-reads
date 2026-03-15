@@ -6,12 +6,13 @@ import { BookOpen, Heart, TrendingUp, Loader2, Eye, Lock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default function Home() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [stories, setStories] = useState([]);
   const [trending, setTrending] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
     if (isAuthenticated) {
       Promise.all([
         apiFetch("/stories").catch(() => []),
@@ -27,7 +28,7 @@ export default function Home() {
         setLoading(false);
       });
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, authLoading]);
 
   if (!isAuthenticated) {
     return (
