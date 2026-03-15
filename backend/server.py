@@ -1388,15 +1388,24 @@ async def toggle_story_favorite(story_id: str, current_user: dict = Depends(get_
 @api_router.get("/stories/{story_id}/progress")
 async def get_story_progress(story_id: str, current_user: dict = Depends(get_current_user)):
     prog = await db.story_progress.find_one({"story_id": story_id, "user_id": current_user["id"]}, {"_id": 0})
-    return prog or {"progress": 0}
+    return prog or {"progress": 0, "chapter_id": None, "scroll_pct": 0}
 
 @api_router.post("/stories/{story_id}/progress")
 async def update_story_progress(story_id: str, data: dict, current_user: dict = Depends(get_current_user)):
-    progress = data.get("progress", 0)
+    progress = max(0, min(100, int(data.get("progress", 0))))
+    chapter_id = data.get("chapter_id") or None
+    scroll_pct = max(0.0, min(100.0, float(data.get("scroll_pct", progress))))
     now = datetime.now(timezone.utc).isoformat()
     await db.story_progress.update_one(
         {"story_id": story_id, "user_id": current_user["id"]},
-        {"$set": {"progress": progress, "updated_at": now, "story_id": story_id, "user_id": current_user["id"]}},
+        {"$set": {
+            "progress": progress,
+            "chapter_id": chapter_id,
+            "scroll_pct": scroll_pct,
+            "updated_at": now,
+            "story_id": story_id,
+            "user_id": current_user["id"],
+        }},
         upsert=True
     )
     return {"progress": progress}

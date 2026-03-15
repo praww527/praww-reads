@@ -46,8 +46,15 @@ export default function StoryDetail() {
   const [commentErrors, setCommentErrors] = useState({});
 
   const contentRef = useRef(null);
+  const savedScrollRef = useRef(null);
+  const hasRestoredRef = useRef(false);
+  const isRestoringRef = useRef(false);
+  const saveTimerRef = useRef(null);
+  const [resumeBanner, setResumeBanner] = useState(0);
 
   useEffect(() => {
+    hasRestoredRef.current = false;
+    savedScrollRef.current = null;
     fetchAll();
   }, [id]);
 
@@ -78,12 +85,33 @@ export default function StoryDetail() {
         apiFetch(`/api/stories/${id}/chapters`),
         apiFetch(`/api/stories/${id}/comments`),
       ]);
+
+      let initialChapter = chs.length > 0 ? chs[0] : null;
+      let initialProgress = 0;
+
+      if (isAuthenticated) {
+        const prog = await apiFetch(`/api/stories/${id}/progress`).catch(() => null);
+        if (prog) {
+          initialProgress = prog.progress || 0;
+          const scrollPct = prog.scroll_pct ?? initialProgress;
+          if (prog.chapter_id && chs.length > 0) {
+            const savedCh = chs.find(c => c.id === prog.chapter_id);
+            if (savedCh) initialChapter = savedCh;
+          }
+          if (scrollPct > 0) {
+            savedScrollRef.current = { scroll_pct: scrollPct };
+            setResumeBanner(Math.round(scrollPct));
+          }
+        }
+      }
+
       setStory(s);
       setLikes({ count: s.like_count || 0, user_liked: s.user_liked || false });
       setFavorited(s.user_favorited || false);
       setPurchased(s.user_purchased || false);
       setChapters(chs);
-      if (chs.length > 0) setActiveChapter(chs[0]);
+      setActiveChapter(initialChapter);
+      setProgress(initialProgress);
       setComments(cmts);
       const initialLikes = {};
       cmts.forEach(c => {
@@ -93,10 +121,6 @@ export default function StoryDetail() {
         });
       });
       setCommentLikes(initialLikes);
-      if (isAuthenticated) {
-        const prog = await apiFetch(`/api/stories/${id}/progress`).catch(() => ({ progress: 0 }));
-        setProgress(prog.progress || 0);
-      }
     } catch {
       setStory(null);
     } finally {
@@ -105,20 +129,56 @@ export default function StoryDetail() {
   }
 
   useEffect(() => {
+    if (hasRestoredRef.current) return;
+    if (!isAuthenticated || !savedScrollRef.current) return;
+    const { scroll_pct } = savedScrollRef.current;
+    if (scroll_pct <= 0) { hasRestoredRef.current = true; return; }
+
+    hasRestoredRef.current = true;
+    isRestoringRef.current = true;
+
+    const tryScroll = (attempts = 0) => {
+      const el = contentRef.current;
+      if (!el) return;
+      const total = el.scrollHeight - el.clientHeight;
+      if (total > 5) {
+        el.scrollTop = Math.round((scroll_pct / 100) * total);
+        setTimeout(() => { isRestoringRef.current = false; }, 200);
+      } else if (attempts < 10) {
+        setTimeout(() => tryScroll(attempts + 1), 100);
+      } else {
+        isRestoringRef.current = false;
+      }
+    };
+
+    setTimeout(() => tryScroll(), 250);
+  }, [activeChapter, isAuthenticated]);
+
+  useEffect(() => {
     if (!isAuthenticated || !contentRef.current) return;
     const el = contentRef.current;
     const handleScroll = () => {
+      if (isRestoringRef.current) return;
       const scrolled = el.scrollTop;
       const total = el.scrollHeight - el.clientHeight;
       if (total > 0) {
         const pct = Math.round((scrolled / total) * 100);
         setProgress(pct);
-        apiFetch(`/api/stories/${id}/progress`, { method: "POST", body: JSON.stringify({ progress: pct }) }).catch(() => {});
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(() => {
+          apiFetch(`/api/stories/${id}/progress`, {
+            method: "POST",
+            body: JSON.stringify({ progress: pct, chapter_id: activeChapter?.id || null, scroll_pct: pct }),
+          }).catch(() => {});
+        }, 1500);
       }
     };
     el.addEventListener("scroll", handleScroll, { passive: true });
-    return () => el.removeEventListener("scroll", handleScroll);
-  }, [story, isAuthenticated]);
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+      clearTimeout(saveTimerRef.current);
+    };
+  }, [story, isAuthenticated, activeChapter, id]);
 
   async function handleLike() {
     if (!isAuthenticated) { navigate("/login"); return; }
@@ -400,12 +460,33 @@ export default function StoryDetail() {
 
         {/* Reading Progress */}
         {isAuthenticated && canReadFull && (
-          <div className="mt-4">
-            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-              <span>Reading progress</span><span>{progress}%</span>
-            </div>
-            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+          <div className="mt-4 space-y-2">
+            {resumeBanner > 0 && (
+              <div className="flex items-center justify-between rounded-lg bg-primary/8 border border-primary/20 px-3 py-2 text-xs">
+                <span className="text-primary font-medium flex items-center gap-1.5">
+                  <BookOpen className="h-3.5 w-3.5" />
+                  Resuming from where you left off ({resumeBanner}%)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResumeBanner(0);
+                    if (contentRef.current) contentRef.current.scrollTop = 0;
+                  }}
+                  className="text-muted-foreground hover:text-foreground transition-colors ml-3"
+                  title="Start from beginning"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+            <div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                <span>Reading progress</span><span>{progress}%</span>
+              </div>
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+              </div>
             </div>
           </div>
         )}
@@ -417,7 +498,7 @@ export default function StoryDetail() {
           {chapters.map(ch => (
             <button
               key={ch.id}
-              onClick={() => setActiveChapter(ch)}
+              onClick={() => { setActiveChapter(ch); setTimeout(() => { if (contentRef.current) contentRef.current.scrollTop = 0; }, 50); }}
               className={`text-sm rounded-lg px-3 py-1.5 border transition-colors ${activeChapter?.id === ch.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary/40"}`}
             >
               Ch. {ch.order_index + 1}: {ch.title}
@@ -430,7 +511,6 @@ export default function StoryDetail() {
       <div
         ref={canReadFull && isAuthenticated ? contentRef : null}
         className="prose prose-lg max-w-none dark:prose-invert max-h-[60vh] overflow-y-auto pr-2 mb-8 rounded-xl bg-card border border-border p-6"
-        style={{ scrollBehavior: "smooth" }}
       >
         {activeChapter && canReadFull && <h2 className="font-serif text-2xl font-bold mb-4">{activeChapter.title}</h2>}
         <p className="whitespace-pre-wrap text-foreground leading-relaxed">{displayContent}</p>
@@ -476,13 +556,17 @@ export default function StoryDetail() {
       {/* Chapter Navigation */}
       {canReadFull && chapters.length > 1 && (
         <div className="flex justify-between mb-10">
-          <button onClick={() => setActiveChapter(chapters[chapterIdx - 1])} disabled={chapterIdx <= 0}
+          <button
+            onClick={() => { setActiveChapter(chapters[chapterIdx - 1]); setTimeout(() => { if (contentRef.current) contentRef.current.scrollTop = 0; }, 50); }}
+            disabled={chapterIdx <= 0}
             className="flex items-center gap-1.5 text-sm rounded-lg border border-border px-4 py-2 hover:border-primary/40 disabled:opacity-40">
-            <ChevronLeft className="h-4 w-4" /> Previous
+            <ChevronLeft className="h-4 w-4" /> Previous Chapter
           </button>
-          <button onClick={() => setActiveChapter(chapters[chapterIdx + 1])} disabled={chapterIdx >= chapters.length - 1}
+          <button
+            onClick={() => { setActiveChapter(chapters[chapterIdx + 1]); setTimeout(() => { if (contentRef.current) contentRef.current.scrollTop = 0; }, 50); }}
+            disabled={chapterIdx >= chapters.length - 1}
             className="flex items-center gap-1.5 text-sm rounded-lg border border-border px-4 py-2 hover:border-primary/40 disabled:opacity-40">
-            Next <ChevronRight className="h-4 w-4" />
+            Next Chapter <ChevronRight className="h-4 w-4" />
           </button>
         </div>
       )}
