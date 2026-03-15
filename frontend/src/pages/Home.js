@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { BookOpen, Heart, TrendingUp, Loader2, Eye, Lock, PenLine } from "lucide-react";
+import { BookOpen, Heart, TrendingUp, Loader2, Eye, Lock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default function Home() {
@@ -55,23 +55,6 @@ export default function Home() {
               >
                 Log In
               </Link>
-            </div>
-            <div className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
-              <div className="rounded-2xl border border-border bg-card p-5">
-                <BookOpen className="h-7 w-7 text-primary mb-3" />
-                <h3 className="font-serif font-bold text-base mb-1">Read Stories</h3>
-                <p className="text-sm text-muted-foreground">Discover original fiction, poetry, and more from writers in our community.</p>
-              </div>
-              <div className="rounded-2xl border border-border bg-card p-5">
-                <PenLine className="h-7 w-7 text-primary mb-3" />
-                <h3 className="font-serif font-bold text-base mb-1">Write & Publish</h3>
-                <p className="text-sm text-muted-foreground">Share your stories with readers. Monetize your work with paid stories and donations.</p>
-              </div>
-              <div className="rounded-2xl border border-border bg-card p-5">
-                <Heart className="h-7 w-7 text-primary mb-3" />
-                <h3 className="font-serif font-bold text-base mb-1">Connect</h3>
-                <p className="text-sm text-muted-foreground">Follow your favourite authors, comment on stories, and build a reading community.</p>
-              </div>
             </div>
           </div>
         </div>
