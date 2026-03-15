@@ -590,7 +590,7 @@ export default function StoryDetail() {
 
       {/* Donation Section — free stories */}
       {isAuthenticated && !isPaidStory && !isAuthor && (
-        <div className="mb-10 rounded-2xl border border-border bg-card p-6">
+        <div className="mb-10 glass-card p-6">
           <div className="flex items-center gap-2 mb-3">
             <Gift className="h-5 w-5 text-primary" />
             <h3 className="font-serif text-lg font-bold">Support the Writer</h3>
@@ -613,7 +613,7 @@ export default function StoryDetail() {
 
       {/* Donation Section — paid + purchased */}
       {isAuthenticated && isPaidStory && purchased && !isAuthor && (
-        <div className="mb-10 rounded-2xl border border-border bg-card p-6">
+        <div className="mb-10 glass-card p-6">
           <div className="flex items-center gap-2 mb-3">
             <Gift className="h-5 w-5 text-primary" />
             <h3 className="font-serif text-lg font-bold">Loved it? Support the Writer</h3>

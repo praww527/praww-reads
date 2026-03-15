@@ -166,7 +166,7 @@ export default function Marketplace() {
       {loading ? (
         <div className="flex justify-center py-32"><Loader2 className="h-12 w-12 animate-spin text-primary/50" /></div>
       ) : books.length === 0 ? (
-        <div className="text-center py-32 border-2 border-dashed border-border rounded-3xl bg-muted/10">
+        <div className="text-center py-32 glass-card" style={{border:"2px dashed rgba(0,0,0,0.10)"}}>
           <BookText className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
           <h3 className="font-serif text-2xl font-semibold">Marketplace is empty</h3>
           <p className="text-muted-foreground mt-2">Be the first to list a book.</p>

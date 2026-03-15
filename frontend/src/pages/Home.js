@@ -132,7 +132,7 @@ export default function Home() {
           {loading ? (
             <div className="flex justify-center py-16"><Loader2 className="h-10 w-10 animate-spin text-primary/50" /></div>
           ) : stories.length === 0 ? (
-            <div className="text-center py-16 border-2 border-dashed border-border rounded-2xl">
+            <div className="text-center py-16 glass-card"  style={{border:"2px dashed rgba(0,0,0,0.10)"}}>
               <BookOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
               <p className="text-muted-foreground">No stories yet. Be the first to write one!</p>
               <Link to="/write" className="inline-flex mt-4 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90">Start Writing</Link>
@@ -150,7 +150,7 @@ export default function Home() {
 
 function StoryCard({ story }) {
   return (
-    <Link to={`/stories/${story.id}`} className="group flex flex-col rounded-2xl border border-border bg-card hover:border-primary/40 hover:shadow-lg transition-all overflow-hidden">
+    <Link to={`/stories/${story.id}`} className="group flex flex-col glass-card glass-shimmer hover:border-primary/40 transition-all overflow-hidden">
       {story.cover_image_url ? (
         <div className="aspect-video overflow-hidden">
           <img src={story.cover_image_url} alt={story.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -187,7 +187,7 @@ function GuestStoryCard({ story }) {
   return (
     <Link
       to="/login"
-      className="group flex flex-col rounded-2xl border border-border bg-card hover:border-primary/40 hover:shadow-lg transition-all overflow-hidden cursor-pointer"
+      className="group flex flex-col glass-card glass-shimmer hover:border-primary/40 transition-all overflow-hidden cursor-pointer"
     >
       {story.cover_image_url ? (
         <div className="aspect-video overflow-hidden relative">

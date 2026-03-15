@@ -280,7 +280,7 @@ export default function Profile() {
       <div>
         <h2 className="font-serif text-2xl font-bold mb-6">{isOwnProfile ? "Your Stories" : "Stories"}</h2>
         {stories.length === 0 ? (
-          <div className="text-center py-16 border-2 border-dashed border-border rounded-2xl bg-muted/10">
+          <div className="text-center py-16 glass-card" style={{border:"2px dashed rgba(0,0,0,0.10)"}}>
             <BookOpen className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
             <p className="text-muted-foreground text-sm">{isOwnProfile ? "You haven't published any stories yet." : "No stories published yet."}</p>
             {isOwnProfile && (

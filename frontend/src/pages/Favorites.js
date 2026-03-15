@@ -26,7 +26,7 @@ export default function Favorites() {
         <h1 className="font-serif text-4xl font-bold">Saved Stories</h1>
       </div>
       {stories.length === 0 ? (
-        <div className="text-center py-24 border-2 border-dashed border-border rounded-2xl">
+        <div className="text-center py-24 glass-card" style={{border:"2px dashed rgba(0,0,0,0.10)"}}>
           <BookmarkCheck className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
           <p className="text-muted-foreground">No saved stories yet.</p>
           <Link to="/" className="inline-block mt-4 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90">Browse Stories</Link>

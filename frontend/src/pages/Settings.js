@@ -27,7 +27,7 @@ function CodeInput({ value, onChange, placeholder = "123456" }) {
 
 function StatCard({ icon, label, value, accent }) {
   return (
-    <div className={`rounded-2xl border p-4 ${accent ? "border-primary/40 bg-primary/5" : "border-border bg-card"}`}>
+    <div className={`glass-card p-4 ${accent ? "!border-primary/40" : ""}`}>
       <div className="flex items-center gap-2 mb-2">
         {icon}
         <span className="text-xs text-muted-foreground font-medium">{label}</span>
@@ -117,7 +117,7 @@ function EarningsTab({ user }) {
       </div>
 
       {/* Withdrawal */}
-      <div className="rounded-2xl border border-border bg-card p-6 mb-6 shadow-sm">
+      <div className="glass-card p-6 mb-6">
         <div className="flex items-center gap-2 mb-4">
           <ArrowDownToLine className="h-5 w-5 text-primary" />
           <h3 className="font-semibold text-lg">Request Withdrawal</h3>
@@ -168,7 +168,7 @@ function EarningsTab({ user }) {
 
       {/* Your Stories */}
       {wallet?.stories?.length > 0 && (
-        <div className="rounded-2xl border border-border bg-card p-6 mb-6 shadow-sm">
+        <div className="glass-card p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <BookOpen className="h-5 w-5 text-primary" />
             <h3 className="font-semibold text-lg">Your Stories</h3>
@@ -199,7 +199,7 @@ function EarningsTab({ user }) {
 
       {/* Recent Donations */}
       {wallet?.donations?.length > 0 && (
-        <div className="rounded-2xl border border-border bg-card p-6 mb-6 shadow-sm">
+        <div className="glass-card p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <Gift className="h-5 w-5 text-violet-500" />
             <h3 className="font-semibold text-lg">Recent Donations</h3>
@@ -223,7 +223,7 @@ function EarningsTab({ user }) {
 
       {/* Story Sales */}
       {wallet?.purchases?.length > 0 && (
-        <div className="rounded-2xl border border-border bg-card p-6 mb-6 shadow-sm">
+        <div className="glass-card p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <Lock className="h-5 w-5 text-amber-500" />
             <h3 className="font-semibold text-lg">Story Sales</h3>
@@ -247,7 +247,7 @@ function EarningsTab({ user }) {
 
       {/* Withdrawal History */}
       {wallet?.withdrawals?.length > 0 && (
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div className="glass-card p-6">
           <div className="flex items-center gap-2 mb-4">
             <ArrowDownToLine className="h-5 w-5 text-muted-foreground" />
             <h3 className="font-semibold text-lg">Withdrawal History</h3>
@@ -270,7 +270,7 @@ function EarningsTab({ user }) {
       )}
 
       {!wallet?.donations?.length && !wallet?.purchases?.length && !wallet?.stories?.length && (
-        <div className="text-center py-16 border-2 border-dashed border-border rounded-2xl">
+        <div className="text-center py-16 glass-card" style={{border:"2px dashed rgba(0,0,0,0.10)"}}>
           <Wallet className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
           <p className="text-muted-foreground mb-2">No earnings yet</p>
           <p className="text-sm text-muted-foreground mb-4">Publish stories and readers can donate or purchase them.</p>
@@ -515,7 +515,7 @@ export default function Settings() {
       ) : (
         <>
           {/* Account Info */}
-          <div className="bg-card border border-border rounded-2xl p-6 mb-6 shadow-sm">
+          <div className="glass-card p-6 mb-6">
             <div className="flex items-center gap-4 mb-4">
               <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 {user?.profile_image_url ? (
@@ -552,7 +552,7 @@ export default function Settings() {
               <p className="text-sm text-muted-foreground">You have an active Premium account with a verified badge on your profile.</p>
             </div>
           ) : (
-            <div className="bg-card border border-border rounded-2xl p-6 mb-6 shadow-sm">
+            <div className="glass-card p-6 mb-6">
               <div className="flex items-center gap-2 mb-1">
                 <Crown className="h-5 w-5 text-primary" />
                 <h2 className="font-semibold text-lg">Go Premium</h2>
@@ -596,7 +596,7 @@ export default function Settings() {
           )}
 
           {/* Phone Number */}
-          <div className="bg-card border border-border rounded-2xl p-6 mb-6 shadow-sm">
+          <div className="glass-card p-6 mb-6">
             <div className="flex items-center gap-2 mb-1">
               <Phone className="h-5 w-5 text-muted-foreground" />
               <h2 className="font-semibold text-lg">Phone Number</h2>
@@ -674,7 +674,7 @@ export default function Settings() {
           </div>
 
           {/* Change Email */}
-          <div className="bg-card border border-border rounded-2xl p-6 mb-6 shadow-sm">
+          <div className="glass-card p-6 mb-6">
             <div className="flex items-center gap-2 mb-5">
               <Mail className="h-5 w-5 text-muted-foreground" />
               <h2 className="font-semibold text-lg">Change Email</h2>
@@ -725,7 +725,7 @@ export default function Settings() {
           </div>
 
           {/* Change Password */}
-          <div className="bg-card border border-border rounded-2xl p-6 mb-6 shadow-sm">
+          <div className="glass-card p-6 mb-6">
             <div className="flex items-center gap-2 mb-2">
               <Lock className="h-5 w-5 text-muted-foreground" />
               <h2 className="font-semibold text-lg">Change Password</h2>
@@ -779,7 +779,7 @@ export default function Settings() {
           </div>
 
           {/* Log Out */}
-          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+          <div className="glass-card p-6">
             <div className="flex items-center gap-2 mb-2">
               <LogOut className="h-5 w-5 text-muted-foreground" />
               <h2 className="font-semibold text-lg">Log Out</h2>

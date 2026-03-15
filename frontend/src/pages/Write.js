@@ -221,7 +221,7 @@ export default function Write() {
         </div>
 
         {/* Monetization */}
-        <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+        <div className="glass-card p-4 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Lock className="h-5 w-5 text-muted-foreground" />

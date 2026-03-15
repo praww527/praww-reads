@@ -110,7 +110,7 @@ export default function Earnings() {
       </div>
 
       {/* Withdrawal */}
-      <div className="rounded-2xl border border-border bg-card p-6 mb-8">
+      <div className="glass-card p-6 mb-8">
         <div className="flex items-center gap-2 mb-4">
           <ArrowDownToLine className="h-5 w-5 text-primary" />
           <h2 className="font-serif text-xl font-bold">Request Withdrawal</h2>
@@ -165,7 +165,7 @@ export default function Earnings() {
 
       {/* Stories */}
       {wallet?.stories?.length > 0 && (
-        <div className="rounded-2xl border border-border bg-card p-6 mb-8">
+        <div className="glass-card p-6 mb-8">
           <div className="flex items-center gap-2 mb-4">
             <BookOpen className="h-5 w-5 text-primary" />
             <h2 className="font-serif text-xl font-bold">Your Stories</h2>
@@ -196,7 +196,7 @@ export default function Earnings() {
 
       {/* Recent Donations */}
       {wallet?.donations?.length > 0 && (
-        <div className="rounded-2xl border border-border bg-card p-6 mb-8">
+        <div className="glass-card p-6 mb-8">
           <div className="flex items-center gap-2 mb-4">
             <Gift className="h-5 w-5 text-violet-500" />
             <h2 className="font-serif text-xl font-bold">Recent Donations</h2>
@@ -220,7 +220,7 @@ export default function Earnings() {
 
       {/* Recent Sales */}
       {wallet?.purchases?.length > 0 && (
-        <div className="rounded-2xl border border-border bg-card p-6 mb-8">
+        <div className="glass-card p-6 mb-8">
           <div className="flex items-center gap-2 mb-4">
             <Lock className="h-5 w-5 text-amber-500" />
             <h2 className="font-serif text-xl font-bold">Story Sales</h2>
@@ -244,7 +244,7 @@ export default function Earnings() {
 
       {/* Withdrawal History */}
       {wallet?.withdrawals?.length > 0 && (
-        <div className="rounded-2xl border border-border bg-card p-6">
+        <div className="glass-card p-6">
           <div className="flex items-center gap-2 mb-4">
             <ArrowDownToLine className="h-5 w-5 text-muted-foreground" />
             <h2 className="font-serif text-xl font-bold">Withdrawal History</h2>
@@ -267,7 +267,7 @@ export default function Earnings() {
       )}
 
       {!wallet?.donations?.length && !wallet?.purchases?.length && !wallet?.stories?.length && (
-        <div className="text-center py-16 border-2 border-dashed border-border rounded-2xl">
+        <div className="text-center py-16 glass-card" style={{border:"2px dashed rgba(0,0,0,0.10)"}}>
           <Wallet className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
           <p className="text-muted-foreground mb-2">No earnings yet</p>
           <p className="text-sm text-muted-foreground mb-4">Publish stories and readers can donate or purchase them.</p>
