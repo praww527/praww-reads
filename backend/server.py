@@ -14,7 +14,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from concurrent.futures import ThreadPoolExecutor
 from pymongo.errors import DuplicateKeyError
-from urllib.parse import quote, urlparse, urlunparse
+from urllib.parse import quote, urlparse, urlunparse, urlencode
+import hashlib, httpx
 
 _email_executor = ThreadPoolExecutor(max_workers=2)
 
@@ -1044,15 +1045,40 @@ async def delete_story(story_id: str, current_user: dict = Depends(get_current_u
         raise HTTPException(403, "Story not found or unauthorized")
     return {"deleted": True}
 
-# ── Monetization: Donations ───────────────────────────────────────────────────
+# ── Monetization / PayFast ────────────────────────────────────────────────────
 PLATFORM_COMMISSION = 0.30
 WRITER_SHARE = 0.70
 VALID_DONATION_AMOUNTS = [5, 10, 20, 50]
 MIN_WITHDRAWAL = 100.0
 
-@api_router.post("/stories/{story_id}/donate")
-async def donate_to_story(story_id: str, data: DonationInput, current_user: dict = Depends(get_current_user)):
-    story = await db.stories.find_one({"id": story_id}, {"_id": 0})
+PAYFAST_MERCHANT_ID  = os.environ.get("PAYFAST_MERCHANT_ID",  "10000100")
+PAYFAST_MERCHANT_KEY = os.environ.get("PAYFAST_MERCHANT_KEY", "46f0cd694581a")
+PAYFAST_PASSPHRASE   = os.environ.get("PAYFAST_PASSPHRASE",   "")
+PAYFAST_SANDBOX      = os.environ.get("PAYFAST_SANDBOX", "true").lower() == "true"
+PAYFAST_BASE         = "https://sandbox.payfast.co.za" if PAYFAST_SANDBOX else "https://www.payfast.co.za"
+APP_URL              = os.environ.get("APP_URL", "").rstrip("/")
+
+def _payfast_sig(fields: list) -> str:
+    params = [(k, v) for k, v in fields if v not in (None, "")]
+    if PAYFAST_PASSPHRASE:
+        params.append(("passphrase", PAYFAST_PASSPHRASE))
+    return hashlib.md5(urlencode(params).encode()).hexdigest()
+
+def _build_payfast(fields: list) -> dict:
+    sig = _payfast_sig(fields)
+    return {"payfast_url": f"{PAYFAST_BASE}/eng/process",
+            "form_data": dict(fields + [("signature", sig)])}
+
+class PayFastDonationInput(BaseModel):
+    story_id: str
+    amount: float
+
+class PayFastPurchaseInput(BaseModel):
+    story_id: str
+
+@api_router.post("/payfast/initiate-donation")
+async def initiate_donation(data: PayFastDonationInput, current_user: dict = Depends(get_current_user)):
+    story = await db.stories.find_one({"id": data.story_id}, {"_id": 0})
     if not story:
         raise HTTPException(404, "Story not found")
     if story["author_id"] == current_user["id"]:
@@ -1060,95 +1086,170 @@ async def donate_to_story(story_id: str, data: DonationInput, current_user: dict
     if data.amount not in VALID_DONATION_AMOUNTS:
         raise HTTPException(400, f"Invalid donation amount. Choose from: {VALID_DONATION_AMOUNTS}")
     now = datetime.now(timezone.utc).isoformat()
-    writer_amount = round(data.amount * WRITER_SHARE, 2)
+    writer_amount  = round(data.amount * WRITER_SHARE, 2)
     platform_amount = round(data.amount * PLATFORM_COMMISSION, 2)
     donation_id = str(uuid.uuid4())
-    donation = {
-        "id": donation_id,
-        "story_id": story_id,
-        "donor_id": current_user["id"],
-        "writer_id": story["author_id"],
-        "amount": data.amount,
-        "writer_amount": writer_amount,
-        "platform_amount": platform_amount,
-        "status": "pending",
-        "created_at": now,
-    }
-    await db.donations.insert_one(donation)
-    await db.stories.update_one({"id": story_id}, {"$inc": {"total_donations": data.amount}})
-    await db.users.update_one(
-        {"id": story["author_id"]},
-        {"$inc": {"wallet_balance": writer_amount, "total_earnings": writer_amount}}
-    )
-    await db.platform_revenue.insert_one({
-        "id": str(uuid.uuid4()),
-        "type": "donation",
-        "ref_id": donation_id,
-        "amount": platform_amount,
-        "created_at": now,
+    await db.donations.insert_one({
+        "id": donation_id, "story_id": data.story_id,
+        "donor_id": current_user["id"], "writer_id": story["author_id"],
+        "amount": data.amount, "writer_amount": writer_amount,
+        "platform_amount": platform_amount, "status": "pending", "created_at": now,
     })
-    return {
-        "message": f"Thank you for your R{data.amount} donation! We will contact you at {current_user['email']} with payment details.",
-        "donation_id": donation_id,
-        "writer_gets": writer_amount,
-        "platform_gets": platform_amount,
-    }
+    base = APP_URL or "https://4b446737-c826-42f3-ac4b-97de198c5de0-00-3jq0rtupfnu07.picard.replit.dev"
+    name_parts = (current_user.get("name") or current_user["username"]).split(maxsplit=1)
+    item_name = f"Donation – {story.get('title', 'Story')[:80]}"
+    fields = [
+        ("merchant_id",    PAYFAST_MERCHANT_ID),
+        ("merchant_key",   PAYFAST_MERCHANT_KEY),
+        ("return_url",     f"{base}/stories/{data.story_id}?payment=success&type=donation&ref={donation_id}"),
+        ("cancel_url",     f"{base}/stories/{data.story_id}?payment=cancelled"),
+        ("notify_url",     f"{base}/api/payfast/itn"),
+        ("name_first",     name_parts[0]),
+        ("name_last",      name_parts[1] if len(name_parts) > 1 else ""),
+        ("email_address",  current_user["email"]),
+        ("m_payment_id",   donation_id),
+        ("amount",         f"{data.amount:.2f}"),
+        ("item_name",      item_name),
+        ("custom_str1",    "donation"),
+        ("custom_str2",    data.story_id),
+        ("custom_str3",    current_user["id"]),
+    ]
+    return _build_payfast(fields)
 
 @api_router.get("/stories/{story_id}/purchase-status")
 async def get_purchase_status(story_id: str, current_user: Optional[dict] = Depends(get_optional_user)):
     if not current_user:
         return {"purchased": False}
-    purchase = await db.story_purchases.find_one({"story_id": story_id, "buyer_id": current_user["id"]})
+    purchase = await db.story_purchases.find_one({
+        "story_id": story_id, "buyer_id": current_user["id"], "status": "completed"
+    })
     story = await db.stories.find_one({"id": story_id}, {"_id": 0, "author_id": 1})
     is_author = story and story["author_id"] == current_user["id"]
     return {"purchased": bool(purchase) or is_author}
 
-@api_router.post("/stories/{story_id}/purchase")
-async def purchase_story(story_id: str, current_user: dict = Depends(get_current_user)):
-    story = await db.stories.find_one({"id": story_id}, {"_id": 0})
+@api_router.post("/payfast/initiate-purchase")
+async def initiate_purchase(data: PayFastPurchaseInput, current_user: dict = Depends(get_current_user)):
+    story = await db.stories.find_one({"id": data.story_id}, {"_id": 0})
     if not story:
         raise HTTPException(404, "Story not found")
     if not story.get("is_paid"):
         raise HTTPException(400, "This story is free to read")
     if story["author_id"] == current_user["id"]:
         raise HTTPException(400, "You cannot purchase your own story")
-    existing = await db.story_purchases.find_one({"story_id": story_id, "buyer_id": current_user["id"]})
+    existing = await db.story_purchases.find_one({
+        "story_id": data.story_id, "buyer_id": current_user["id"], "status": "completed"
+    })
     if existing:
         raise HTTPException(400, "You have already purchased this story")
     now = datetime.now(timezone.utc).isoformat()
     price = story.get("price", 0.0)
-    writer_amount = round(price * WRITER_SHARE, 2)
+    if price <= 0:
+        raise HTTPException(400, "Story price is not set")
+    writer_amount   = round(price * WRITER_SHARE, 2)
     platform_amount = round(price * PLATFORM_COMMISSION, 2)
     purchase_id = str(uuid.uuid4())
-    purchase = {
-        "id": purchase_id,
-        "story_id": story_id,
-        "buyer_id": current_user["id"],
-        "writer_id": story["author_id"],
-        "amount": price,
-        "writer_amount": writer_amount,
-        "platform_amount": platform_amount,
-        "status": "pending",
-        "created_at": now,
-    }
-    await db.story_purchases.insert_one(purchase)
-    await db.stories.update_one({"id": story_id}, {"$inc": {"total_sales": 1}})
-    await db.users.update_one(
-        {"id": story["author_id"]},
-        {"$inc": {"wallet_balance": writer_amount, "total_earnings": writer_amount}}
-    )
-    await db.platform_revenue.insert_one({
-        "id": str(uuid.uuid4()),
-        "type": "story_purchase",
-        "ref_id": purchase_id,
-        "amount": platform_amount,
-        "created_at": now,
+    await db.story_purchases.insert_one({
+        "id": purchase_id, "story_id": data.story_id,
+        "buyer_id": current_user["id"], "writer_id": story["author_id"],
+        "amount": price, "writer_amount": writer_amount,
+        "platform_amount": platform_amount, "status": "pending", "created_at": now,
     })
-    return {
-        "message": f"Story unlocked! We will contact you at {current_user['email']} with payment details.",
-        "purchase_id": purchase_id,
-        "amount": price,
-    }
+    base = APP_URL or "https://4b446737-c826-42f3-ac4b-97de198c5de0-00-3jq0rtupfnu07.picard.replit.dev"
+    name_parts = (current_user.get("name") or current_user["username"]).split(maxsplit=1)
+    item_name = f"Story Purchase – {story.get('title', 'Story')[:75]}"
+    fields = [
+        ("merchant_id",    PAYFAST_MERCHANT_ID),
+        ("merchant_key",   PAYFAST_MERCHANT_KEY),
+        ("return_url",     f"{base}/stories/{data.story_id}?payment=success&type=purchase&ref={purchase_id}"),
+        ("cancel_url",     f"{base}/stories/{data.story_id}?payment=cancelled"),
+        ("notify_url",     f"{base}/api/payfast/itn"),
+        ("name_first",     name_parts[0]),
+        ("name_last",      name_parts[1] if len(name_parts) > 1 else ""),
+        ("email_address",  current_user["email"]),
+        ("m_payment_id",   purchase_id),
+        ("amount",         f"{price:.2f}"),
+        ("item_name",      item_name),
+        ("custom_str1",    "purchase"),
+        ("custom_str2",    data.story_id),
+        ("custom_str3",    current_user["id"]),
+    ]
+    return _build_payfast(fields)
+
+@api_router.post("/payfast/itn")
+async def payfast_itn(request: Request):
+    form   = await request.form()
+    data   = dict(form)
+    pf_sig = data.get("signature", "")
+
+    sig_fields = [(k, v) for k, v in data.items() if k != "signature"]
+    expected   = _payfast_sig(sig_fields)
+    if pf_sig != expected:
+        logging.warning(f"PayFast ITN bad signature. got={pf_sig} expected={expected}")
+        return Response(content="Invalid signature", status_code=400)
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                f"{PAYFAST_BASE}/eng/query/validate",
+                content=urlencode(sig_fields).encode(),
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            if resp.text.strip() != "VALID":
+                logging.warning(f"PayFast ITN validate failed: {resp.text}")
+                return Response(content="Invalid payment", status_code=400)
+    except Exception as exc:
+        logging.error(f"PayFast validate request error: {exc}")
+        return Response(content="Validation error", status_code=500)
+
+    if data.get("payment_status") != "COMPLETE":
+        return Response(content="OK")
+
+    payment_type = data.get("custom_str1", "")
+    payment_id   = data.get("m_payment_id", "")
+    pf_payment_id = data.get("pf_payment_id", "")
+    now = datetime.now(timezone.utc).isoformat()
+
+    if payment_type == "donation":
+        donation = await db.donations.find_one({"id": payment_id})
+        if not donation or donation.get("status") == "completed":
+            return Response(content="OK")
+        await db.donations.update_one(
+            {"id": payment_id},
+            {"$set": {"status": "completed", "payfast_id": pf_payment_id, "completed_at": now}},
+        )
+        await db.stories.update_one(
+            {"id": donation["story_id"]}, {"$inc": {"total_donations": donation["amount"]}}
+        )
+        await db.users.update_one(
+            {"id": donation["writer_id"]},
+            {"$inc": {"wallet_balance": donation["writer_amount"], "total_earnings": donation["writer_amount"]}},
+        )
+        await db.platform_revenue.insert_one({
+            "id": str(uuid.uuid4()), "type": "donation",
+            "ref_id": payment_id, "amount": donation["platform_amount"], "created_at": now,
+        })
+
+    elif payment_type == "purchase":
+        purchase = await db.story_purchases.find_one({"id": payment_id})
+        if not purchase or purchase.get("status") == "completed":
+            return Response(content="OK")
+        await db.story_purchases.update_one(
+            {"id": payment_id},
+            {"$set": {"status": "completed", "payfast_id": pf_payment_id, "completed_at": now}},
+        )
+        await db.stories.update_one(
+            {"id": purchase["story_id"]}, {"$inc": {"total_sales": 1}}
+        )
+        await db.users.update_one(
+            {"id": purchase["writer_id"]},
+            {"$inc": {"wallet_balance": purchase["writer_amount"], "total_earnings": purchase["writer_amount"]}},
+        )
+        await db.platform_revenue.insert_one({
+            "id": str(uuid.uuid4()), "type": "story_purchase",
+            "ref_id": payment_id, "amount": purchase["platform_amount"], "created_at": now,
+        })
+
+    return Response(content="OK")
 
 # ── Wallet & Earnings ─────────────────────────────────────────────────────────
 @api_router.get("/wallet")

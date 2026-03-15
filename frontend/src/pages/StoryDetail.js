@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { Heart, MessageSquare, BookOpen, ArrowLeft, Loader2, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck, Eye, Lock, Gift, Pencil, Trash2, Check, X } from "lucide-react";
+import { Heart, MessageSquare, BookOpen, ArrowLeft, Loader2, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck, Eye, Lock, Gift, Pencil, Trash2, Check, X, CreditCard } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 const DONATION_AMOUNTS = [5, 10, 20, 50];
@@ -11,6 +11,7 @@ export default function StoryDetail() {
   const { id } = useParams();
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [story, setStory] = useState(null);
   const [chapters, setChapters] = useState([]);
@@ -27,7 +28,11 @@ export default function StoryDetail() {
   const [purchasing, setPurchasing] = useState(false);
   const [donating, setDonating] = useState(false);
   const [donateSuccess, setDonateSuccess] = useState("");
+  const [donateError, setDonateError] = useState("");
   const [purchaseSuccess, setPurchaseSuccess] = useState("");
+  const [purchaseError, setPurchaseError] = useState("");
+  const [paymentNotice, setPaymentNotice] = useState("");
+  const [deleteError, setDeleteError] = useState("");
 
   const [deletingStory, setDeletingStory] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -38,12 +43,33 @@ export default function StoryDetail() {
   const [deletingCommentId, setDeletingCommentId] = useState(null);
   const [commentLikes, setCommentLikes] = useState({});
   const [likingCommentId, setLikingCommentId] = useState(null);
+  const [commentErrors, setCommentErrors] = useState({});
 
   const contentRef = useRef(null);
 
   useEffect(() => {
     fetchAll();
   }, [id]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const payment = params.get("payment");
+    const type = params.get("type");
+    if (payment === "success") {
+      if (type === "purchase") {
+        setPurchased(true);
+        setPurchaseSuccess("Payment successful! You now have full access to this story.");
+      } else if (type === "donation") {
+        setDonateSuccess("Thank you! Your donation has been received and the writer will be notified.");
+      } else {
+        setPaymentNotice("Payment successful!");
+      }
+      navigate(location.pathname, { replace: true });
+    } else if (payment === "cancelled") {
+      setPaymentNotice("Payment was cancelled. No charge was made.");
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.search]);
 
   async function fetchAll() {
     try {
@@ -127,16 +153,34 @@ export default function StoryDetail() {
     }
   }
 
+  function _submitPayfast(payfastUrl, formData) {
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = payfastUrl;
+    Object.entries(formData).forEach(([k, v]) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = k;
+      input.value = v;
+      form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+  }
+
   async function handleDonate(amount) {
     if (!isAuthenticated) { navigate("/register"); return; }
     setDonating(true);
     setDonateSuccess("");
+    setDonateError("");
     try {
-      const res = await apiFetch(`/stories/${id}/donate`, { method: "POST", body: JSON.stringify({ amount }) });
-      setDonateSuccess(res.message);
+      const res = await apiFetch("/payfast/initiate-donation", {
+        method: "POST",
+        body: JSON.stringify({ story_id: id, amount }),
+      });
+      _submitPayfast(res.payfast_url, res.form_data);
     } catch (err) {
-      alert(err.message || "Donation failed");
-    } finally {
+      setDonateError(err.message || "Failed to initiate donation. Please try again.");
       setDonating(false);
     }
   }
@@ -144,13 +188,15 @@ export default function StoryDetail() {
   async function handlePurchase() {
     if (!isAuthenticated) { navigate("/register"); return; }
     setPurchasing(true);
+    setPurchaseError("");
     try {
-      const res = await apiFetch(`/stories/${id}/purchase`, { method: "POST" });
-      setPurchased(true);
-      setPurchaseSuccess(res.message);
+      const res = await apiFetch("/payfast/initiate-purchase", {
+        method: "POST",
+        body: JSON.stringify({ story_id: id }),
+      });
+      _submitPayfast(res.payfast_url, res.form_data);
     } catch (err) {
-      alert(err.message || "Purchase failed");
-    } finally {
+      setPurchaseError(err.message || "Failed to initiate purchase. Please try again.");
       setPurchasing(false);
     }
   }
@@ -158,11 +204,12 @@ export default function StoryDetail() {
   async function handleDeleteStory() {
     if (!confirmDelete) { setConfirmDelete(true); return; }
     setDeletingStory(true);
+    setDeleteError("");
     try {
       await apiFetch(`/stories/${id}`, { method: "DELETE" });
       navigate("/");
     } catch (err) {
-      alert(err.message || "Failed to delete story");
+      setDeleteError(err.message || "Failed to delete story");
       setDeletingStory(false);
       setConfirmDelete(false);
     }
@@ -191,7 +238,7 @@ export default function StoryDetail() {
       setEditingCommentId(null);
       setEditingCommentText("");
     } catch (err) {
-      alert(err.message || "Failed to edit comment");
+      setCommentErrors(prev => ({ ...prev, [commentId]: err.message || "Failed to edit comment" }));
     } finally {
       setSavingComment(false);
     }
@@ -207,7 +254,7 @@ export default function StoryDetail() {
           .map(c => ({ ...c, replies: (c.replies || []).filter(r => r.id !== commentId) }))
       );
     } catch (err) {
-      alert(err.message || "Failed to delete comment");
+      setCommentErrors(prev => ({ ...prev, [commentId]: err.message || "Failed to delete comment" }));
     } finally {
       setDeletingCommentId(null);
     }
