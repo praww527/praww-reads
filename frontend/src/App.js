@@ -10,6 +10,7 @@ import StoryDetail from "./pages/StoryDetail";
 import Write from "./pages/Write";
 import EditStory from "./pages/EditStory";
 import AddChapter from "./pages/AddChapter";
+import BottomNav from "./components/BottomNav";
 import Messages from "./pages/Messages";
 import Conversation from "./pages/Conversation";
 import Profile from "./pages/Profile";
@@ -39,7 +40,7 @@ function AppShell() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navbar />
-      <main>
+      <main className="pb-16 md:pb-0">
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<Home />} />
@@ -66,6 +67,7 @@ function AppShell() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
+      <BottomNav />
     </div>
   );
 }
