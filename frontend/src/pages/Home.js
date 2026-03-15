@@ -102,9 +102,11 @@ export default function Home() {
             <Link to="/marketplace" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground font-semibold px-6 py-3 hover:bg-primary/90 transition-colors">
               Browse Marketplace
             </Link>
-            <Link to="/write" className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background font-semibold px-6 py-3 hover:bg-muted transition-colors">
-              Start Writing
-            </Link>
+            <button
+              onClick={() => document.getElementById("stories-section")?.scrollIntoView({ behavior: "smooth" })}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background font-semibold px-6 py-3 hover:bg-muted transition-colors cursor-pointer">
+              Start Reading
+            </button>
           </div>
         </div>
       </div>
@@ -124,7 +126,7 @@ export default function Home() {
           </section>
         )}
 
-        <section>
+        <section id="stories-section">
           <h2 className="font-serif text-2xl font-bold mb-6">Recent Stories</h2>
           {loading ? (
             <div className="flex justify-center py-16"><Loader2 className="h-10 w-10 animate-spin text-primary/50" /></div>

@@ -9,13 +9,14 @@ from typing import List, Optional, Any
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
-import os, uuid, bcrypt, jwt, logging, random, string, smtplib, asyncio, re
+import os, uuid, bcrypt, jwt, logging, random, string, smtplib, asyncio, re, warnings
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from concurrent.futures import ThreadPoolExecutor
 from pymongo.errors import DuplicateKeyError
 from urllib.parse import quote, urlparse, urlunparse, urlencode
-import hashlib, httpx
+import hashlib, httpx, json as _json
+warnings.filterwarnings("ignore", message=".*HMAC key.*below the minimum.*")
 
 _email_executor = ThreadPoolExecutor(max_workers=2)
 
@@ -44,6 +45,56 @@ SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASS = os.environ.get("SMTP_PASS", "")
 SMTP_FROM = os.environ.get("SMTP_FROM", SMTP_USER)  # Display "from" address, defaults to SMTP_USER
+
+# ── Web Push / VAPID ─────────────────────────────────────────────────────────
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY_B64 = os.environ.get("VAPID_PRIVATE_KEY", "")
+VAPID_CLAIMS_EMAIL = os.environ.get("VAPID_CLAIMS_EMAIL", "mailto:noreply@praww.co.za")
+
+_vapid_private_pem: str | None = None
+if VAPID_PRIVATE_KEY_B64:
+    try:
+        import base64 as _b64
+        from cryptography.hazmat.primitives.serialization import (
+            load_der_private_key as _load_der,
+            Encoding as _Enc,
+            PrivateFormat as _PF,
+            NoEncryption as _NE,
+        )
+        _padding = "=" * (4 - len(VAPID_PRIVATE_KEY_B64) % 4)
+        _der = _b64.urlsafe_b64decode(VAPID_PRIVATE_KEY_B64 + _padding)
+        _key = _load_der(_der, password=None)
+        _vapid_private_pem = _key.private_bytes(_Enc.PEM, _PF.TraditionalOpenSSL, _NE()).decode()
+    except Exception as _e:
+        logging.getLogger("server").warning("VAPID key setup failed: %s", _e)
+
+_push_executor = ThreadPoolExecutor(max_workers=2)
+
+def _do_webpush_sync(sub_info: dict, payload: str, vapid_pem: str, claims: dict):
+    try:
+        from pywebpush import webpush, WebPushException
+        webpush(subscription_info=sub_info, data=payload, vapid_private_key=vapid_pem, vapid_claims=claims)
+        return None
+    except Exception as exc:
+        return str(exc)
+
+async def send_push_notification(user_id: str, title: str, body: str, url: str = "/"):
+    if not _vapid_private_pem:
+        return
+    try:
+        subscriptions = await db.push_subscriptions.find({"user_id": user_id}, {"_id": 0}).to_list(10)
+        if not subscriptions:
+            return
+        payload = _json.dumps({"title": title, "body": body, "url": url})
+        claims = {"sub": VAPID_CLAIMS_EMAIL}
+        loop = asyncio.get_event_loop()
+        for sub in subscriptions:
+            sub_info = {"endpoint": sub["endpoint"], "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]}}
+            err = await loop.run_in_executor(_push_executor, _do_webpush_sync, sub_info, payload, _vapid_private_pem, claims)
+            if err and ("410" in str(err) or "404" in str(err)):
+                await db.push_subscriptions.delete_one({"endpoint": sub["endpoint"]})
+    except Exception as exc:
+        logging.getLogger("server").debug("Push notification error: %s", exc)
 
 USERNAME_CHANGE_DAYS = 30
 
@@ -968,6 +1019,13 @@ async def follow_user(user_id: str, current_user: dict = Depends(get_current_use
     existing = await db.follows.find_one({"follower_id": current_user["id"], "following_id": user_id})
     if not existing:
         await db.follows.insert_one({"follower_id": current_user["id"], "following_id": user_id, "created_at": datetime.now(timezone.utc).isoformat()})
+        follower_name = _get_display_name(current_user)
+        asyncio.create_task(send_push_notification(
+            user_id,
+            "New Follower",
+            f"{follower_name} started following you",
+            f"/profile/{current_user.get('username') or current_user['id']}",
+        ))
     count = await db.follows.count_documents({"following_id": user_id})
     return {"following": True, "follower_count": count}
 
@@ -1399,6 +1457,16 @@ async def toggle_story_like(story_id: str, current_user: dict = Depends(get_curr
         await db.story_likes.insert_one({"story_id": story_id, "user_id": current_user["id"], "created_at": datetime.now(timezone.utc).isoformat()})
         liked = True
     count = await db.story_likes.count_documents({"story_id": story_id})
+    if liked:
+        story = await db.stories.find_one({"id": story_id}, {"_id": 0, "author_id": 1, "title": 1})
+        if story and story.get("author_id") != current_user["id"]:
+            liker_name = _get_display_name(current_user)
+            asyncio.create_task(send_push_notification(
+                story["author_id"],
+                "New Like",
+                f"{liker_name} liked your story \"{story.get('title', 'Untitled')}\"",
+                f"/stories/{story_id}",
+            ))
     return {"liked": liked, "count": count}
 
 # Story Favorites
@@ -1470,6 +1538,15 @@ async def create_story_comment(story_id: str, data: CreateCommentInput, current_
     await db.story_comments.insert_one(comment)
     comment.pop("_id", None)
     author = await db.users.find_one({"id": current_user["id"]}, {"_id": 0, "username": 1, "first_name": 1, "last_name": 1})
+    story = await db.stories.find_one({"id": story_id}, {"_id": 0, "author_id": 1, "title": 1})
+    if story and story.get("author_id") != current_user["id"]:
+        commenter_name = _get_display_name(author)
+        asyncio.create_task(send_push_notification(
+            story["author_id"],
+            "New Comment",
+            f"{commenter_name} commented on \"{story.get('title', 'Untitled')}\"",
+            f"/stories/{story_id}",
+        ))
     return {**comment, "author_name": _get_display_name(author), "like_count": 0, "user_liked": False, "replies": []}
 
 @api_router.patch("/stories/comments/{comment_id}")
@@ -1964,6 +2041,13 @@ async def send_dm(data: SendDMInput, current_user: dict = Depends(get_current_us
     }
     await db.direct_messages.insert_one(msg)
     msg.pop("_id", None)
+    sender_name = _get_display_name(current_user)
+    asyncio.create_task(send_push_notification(
+        data.receiver_id,
+        "New Message",
+        f"{sender_name} sent you a message",
+        "/messages",
+    ))
     return msg
 
 @api_router.get("/dm/unread-count")
@@ -2016,6 +2100,36 @@ async def get_dm_conversation(user_id: str, current_user: dict = Depends(get_cur
     return msgs
 
 # ── Health ───────────────────────────────────────────────────────────────────
+# ── Push Notification Endpoints ──────────────────────────────────────────────
+class PushSubscribeInput(BaseModel):
+    endpoint: str
+    keys: dict
+
+@api_router.get("/push/vapid-public-key")
+async def get_vapid_public_key():
+    return {"public_key": VAPID_PUBLIC_KEY}
+
+@api_router.post("/push/subscribe")
+async def push_subscribe(data: PushSubscribeInput, current_user: dict = Depends(get_current_user)):
+    endpoint = data.endpoint.strip()
+    p256dh = data.keys.get("p256dh", "").strip()
+    auth = data.keys.get("auth", "").strip()
+    if not endpoint or not p256dh or not auth:
+        raise HTTPException(400, "Invalid subscription data")
+    await db.push_subscriptions.update_one(
+        {"endpoint": endpoint},
+        {"$set": {"endpoint": endpoint, "p256dh": p256dh, "auth": auth, "user_id": current_user["id"], "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    return {"subscribed": True}
+
+@api_router.delete("/push/unsubscribe")
+async def push_unsubscribe(data: dict, current_user: dict = Depends(get_current_user)):
+    endpoint = data.get("endpoint", "")
+    if endpoint:
+        await db.push_subscriptions.delete_one({"endpoint": endpoint, "user_id": current_user["id"]})
+    return {"unsubscribed": True}
+
 @api_router.get("/")
 async def root():
     return {"message": "PRaww Reads API"}

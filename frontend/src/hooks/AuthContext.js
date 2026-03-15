@@ -8,6 +8,7 @@ import {
   exportPublicKeyJwk,
   storeKeyPair,
 } from "../lib/e2e";
+import { usePushNotifications } from "./usePushNotifications";
 
 const AuthContext = createContext(null);
 
@@ -96,6 +97,8 @@ export function AuthProvider({ children }) {
   };
 
   const refreshUser = fetchUser;
+
+  usePushNotifications(!!user);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, verifyEmail, logout, refreshUser, isAuthenticated: !!user }}>

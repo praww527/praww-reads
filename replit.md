@@ -18,7 +18,7 @@ backend/       - FastAPI server (server.py) with all API routes + static file se
 frontend/      - React application
   src/pages/   - Page components (Home, Marketplace, Write, StoryDetail, Profile, etc.)
   src/components/ - Reusable UI components
-  src/hooks/   - AuthContext, use-toast
+  src/hooks/   - AuthContext, usePushNotifications, use-toast
   src/lib/     - API utilities (api.js uses relative URLs)
   build/       - Production build served by FastAPI
 memory/        - PRD.md and CHANGELOG.md
@@ -32,7 +32,7 @@ memory/        - PRD.md and CHANGELOG.md
 
 ## Environment
 
-- **Backend**: `backend/.env` contains `MONGO_URL`, `DB_NAME`, `JWT_SECRET`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
+- **Backend**: `backend/.env` contains `MONGO_URL`, `DB_NAME`, `JWT_SECRET`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_CLAIMS_EMAIL`
 - **Frontend**: `frontend/.env` has `REACT_APP_BACKEND_URL=` (empty — uses relative paths)
 
 ## Security Features
