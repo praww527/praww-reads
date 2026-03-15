@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
-import { BookOpen, Plus, Trash2, Loader2, ChevronDown, ChevronUp, Camera, X, Lock, AlertCircle, ArrowLeft, Save } from "lucide-react";
+import { BookOpen, Plus, Trash2, Loader2, ChevronDown, ChevronUp, Camera, X, Lock, AlertCircle, ArrowLeft, Save, Bot, AlertTriangle } from "lucide-react";
 
 async function resizeImage(file, maxBytes = 2 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
@@ -30,6 +30,26 @@ async function resizeImage(file, maxBytes = 2 * 1024 * 1024) {
 
 const PRICE_OPTIONS = [10, 20, 30, 50, 75, 100];
 
+function AiScoreGauge({ score }) {
+  const color = score >= 80 ? "#ef4444" : score >= 40 ? "#f59e0b" : "#22c55e";
+  const pct = Math.min(100, Math.max(0, score));
+  const r = 44;
+  const circ = 2 * Math.PI * r;
+  const dashOffset = circ * (1 - pct / 100);
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <svg width="112" height="112" viewBox="0 0 112 112">
+        <circle cx="56" cy="56" r={r} fill="none" stroke="#e5e7eb" strokeWidth="10" />
+        <circle cx="56" cy="56" r={r} fill="none" stroke={color} strokeWidth="10"
+          strokeDasharray={circ} strokeDashoffset={dashOffset}
+          strokeLinecap="round" transform="rotate(-90 56 56)" style={{ transition: "stroke-dashoffset 0.8s ease" }} />
+        <text x="56" y="60" textAnchor="middle" fontSize="22" fontWeight="700" fill={color}>{score}</text>
+      </svg>
+      <span className="text-xs text-muted-foreground font-medium">out of 100</span>
+    </div>
+  );
+}
+
 export default function EditStory() {
   const { id } = useParams();
   const { user, isAuthenticated, loading: authLoading } = useAuth();
@@ -51,6 +71,8 @@ export default function EditStory() {
   const [expandedChapter, setExpandedChapter] = useState(0);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [aiChecking, setAiChecking] = useState(false);
+  const [aiResult, setAiResult] = useState(null);
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -117,21 +139,7 @@ export default function EditStory() {
     if (expandedChapter >= chapters.length - 1) setExpandedChapter(chapters.length - 2);
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError("");
-    setSaved(false);
-
-    if (!title.trim()) { setError("Please enter a story title."); return; }
-    if (useChapters) {
-      const bad = chapters.findIndex(c => !c.title.trim() || !c.content.trim());
-      if (bad !== -1) { setExpandedChapter(bad); setError(`Chapter ${bad + 1} must have both a title and content.`); return; }
-      if (chapters.length === 0) { setError("Add at least one chapter."); return; }
-    } else if (!content.trim()) {
-      setError("Please add some content to your story."); return;
-    }
-    if (isPaid && (!price || price <= 0)) { setError("Please set a valid price."); return; }
-
+  async function doSave() {
     setSubmitting(true);
     try {
       await apiFetch(`/api/stories/${id}`, {
@@ -173,6 +181,48 @@ export default function EditStory() {
       setError(err.message || "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    setSaved(false);
+
+    if (!title.trim()) { setError("Please enter a story title."); return; }
+    if (useChapters) {
+      const bad = chapters.findIndex(c => !c.title.trim() || !c.content.trim());
+      if (bad !== -1) { setExpandedChapter(bad); setError(`Chapter ${bad + 1} must have both a title and content.`); return; }
+      if (chapters.length === 0) { setError("Add at least one chapter."); return; }
+    } else if (!content.trim()) {
+      setError("Please add some content to your story."); return;
+    }
+    if (isPaid && (!price || price <= 0)) { setError("Please set a valid price."); return; }
+
+    const aiContent = useChapters
+      ? chapters.map(c => c.content).join("\n\n")
+      : content;
+
+    if (!aiContent.trim() || aiContent.trim().split(/\s+/).length < 60) {
+      doSave();
+      return;
+    }
+
+    setAiChecking(true);
+    setAiResult(null);
+    try {
+      const result = await apiFetch("/stories/check-ai", {
+        method: "POST",
+        body: JSON.stringify({ content: aiContent, chapters: null }),
+      });
+      setAiResult(result);
+      if (result.verdict === "likely_human" || result.verdict === "too_short") {
+        doSave();
+      }
+    } catch (err) {
+      setError("Content check failed (" + (err.message || "server error") + "). Please try again.");
+    } finally {
+      setAiChecking(false);
     }
   }
 
@@ -339,16 +389,86 @@ export default function EditStory() {
           </div>
         )}
 
+        {aiResult && (aiResult.verdict === "likely_ai" || aiResult.verdict === "possibly_ai") && (
+          <div className={`rounded-2xl border p-5 space-y-4 ${aiResult.score >= 80 ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800" : "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"}`}>
+            <div className="flex items-start gap-4">
+              <div className={`shrink-0 rounded-full p-2 ${aiResult.score >= 80 ? "bg-red-100 dark:bg-red-900/30" : "bg-amber-100 dark:bg-amber-900/30"}`}>
+                {aiResult.score >= 80
+                  ? <Bot className="h-8 w-8 text-red-500" />
+                  : <AlertTriangle className="h-8 w-8 text-amber-500" />
+                }
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className={`font-bold text-base mb-1 ${aiResult.score >= 80 ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
+                  {aiResult.score >= 80 ? "Save rejected — AI-generated content detected" : "This content may contain AI-generated text"}
+                </h3>
+                <p className={`text-sm ${aiResult.score >= 80 ? "text-red-600 dark:text-red-300" : "text-amber-700 dark:text-amber-300"}`}>
+                  {aiResult.score >= 80
+                    ? "PRaww Reads only allows original human writing. Your content scored " + aiResult.score + "/100 on our AI detector and cannot be saved."
+                    : "We detected some patterns common in AI writing. You can still save, but consider reviewing your content."}
+                </p>
+              </div>
+              <AiScoreGauge score={aiResult.score} />
+            </div>
+
+            {aiResult.indicators?.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Signals detected</p>
+                <ul className="space-y-1">
+                  {aiResult.indicators.map((ind, i) => (
+                    <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${aiResult.score >= 80 ? "bg-red-400" : "bg-amber-400"}`} />
+                      {ind}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {aiResult.score >= 80 ? (
+              <>
+                <p className="text-xs text-muted-foreground italic">If you believe this is a mistake, please rewrite your content in your own voice and try again.</p>
+                <button type="button" onClick={() => setAiResult(null)}
+                  className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-semibold hover:bg-muted transition-colors">
+                  Go Back &amp; Edit My Story
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground italic">AI detection is not 100% accurate. If your content is genuinely your own, you can still save it.</p>
+                <div className="flex gap-3 pt-1">
+                  <button type="button" onClick={() => setAiResult(null)}
+                    className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold hover:bg-muted transition-colors">
+                    Cancel — Edit My Story
+                  </button>
+                  <button type="button" onClick={() => doSave()}
+                    disabled={submitting}
+                    className="flex-1 rounded-xl bg-amber-500 hover:bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+                    {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Save Anyway
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {!(aiResult && (aiResult.verdict === "likely_ai" || aiResult.verdict === "possibly_ai")) && (
         <div className="flex gap-3">
-          <button type="submit" disabled={submitting}
+          <button type="submit" disabled={submitting || aiChecking}
             className="flex-1 rounded-xl bg-primary text-primary-foreground font-semibold py-3 hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2 transition-colors">
-            {submitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : <><Save className="h-4 w-4" /> Save Changes</>}
+            {aiChecking
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> Checking content...</>
+              : submitting
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
+              : <><Save className="h-4 w-4" /> Save Changes</>}
           </button>
           <Link to={`/stories/${id}`}
             className="rounded-xl border border-border px-6 py-3 font-semibold hover:bg-muted transition-colors text-center">
             Cancel
           </Link>
         </div>
+        )}
       </form>
     </div>
   );
