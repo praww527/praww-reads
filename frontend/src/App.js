@@ -25,6 +25,8 @@ import TermsOfService from "./pages/TermsOfService";
 import ContentRules from "./pages/ContentRules";
 import ContactSupport from "./pages/ContactSupport";
 import { Loader2 } from "lucide-react";
+import PWAInstallBanner from "./components/PWAInstallBanner";
+import { usePushNotifications } from "./hooks/usePushNotifications";
 import "./App.css";
 
 function PrivateRoute({ children }) {
@@ -43,9 +45,12 @@ function PrivateRoute({ children }) {
 }
 
 function AppShell() {
+  const { isAuthenticated } = useAuth();
+  usePushNotifications(isAuthenticated);
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navbar />
+      <PWAInstallBanner />
       <main className="pb-28 md:pb-0">
         <Routes>
           {/* Public routes */}

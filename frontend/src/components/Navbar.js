@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/AuthContext";
 import { apiFetch } from "../lib/api";
-import { BookOpen, MessageCircle, Menu, X, LogOut, User, Search, Settings } from "lucide-react";
+import { BookOpen, MessageCircle, Menu, X, LogOut, User, Search } from "lucide-react";
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -180,9 +180,6 @@ export default function Navbar() {
                     <div className="absolute right-0 top-full mt-2 w-52 glass-panel z-50 overflow-hidden" onClick={() => setDropdownOpen(false)}>
                       <Link to="/profile/me" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors">
                         <User className="h-4 w-4 text-muted-foreground" /> My Profile
-                      </Link>
-                      <Link to="/settings" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors">
-                        <Settings className="h-4 w-4 text-muted-foreground" /> Settings
                       </Link>
                       <div className="border-t border-border" />
                       <button onClick={handleLogout} data-testid="logout-btn"

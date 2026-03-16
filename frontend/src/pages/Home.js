@@ -45,25 +45,27 @@ export default function Home() {
     return (
       <div className="min-h-screen">
         {/* Hero */}
-        <div className="bg-gradient-to-br from-primary/10 via-background to-background py-20 px-4">
-          <div className="text-center max-w-2xl mx-auto">
-            <BookOpen className="h-16 w-16 text-primary mx-auto mb-6" />
-            <h1 className="font-serif text-5xl sm:text-6xl font-bold tracking-tight text-foreground mb-4">
-              PRaww Reads
-            </h1>
-            <p className="text-xl text-muted-foreground mb-10 max-w-xl mx-auto">
-              A literary community for authors and readers. Share stories, discover great writing, and connect with fellow book lovers.
+        <div className="bg-gradient-to-br from-primary/10 via-background to-background py-10 px-4">
+          <div className="text-center max-w-xl mx-auto">
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <BookOpen className="h-7 w-7 text-primary" />
+              <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
+                PRaww Reads
+              </h1>
+            </div>
+            <p className="text-base text-muted-foreground mb-6 max-w-md mx-auto">
+              A literary community for authors and readers — share stories, discover great writing, connect with book lovers.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link
                 to="/register"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground font-semibold px-8 py-3.5 hover:bg-primary/90 transition-colors text-base"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground font-semibold px-6 py-2.5 hover:bg-primary/90 transition-colors text-sm"
               >
                 Create Free Account
               </Link>
               <Link
                 to="/login"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background font-semibold px-8 py-3.5 hover:bg-muted transition-colors text-base"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background font-semibold px-6 py-2.5 hover:bg-muted transition-colors text-sm"
               >
                 Log In
               </Link>
@@ -102,22 +104,24 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-      <div className="bg-gradient-to-br from-primary/10 via-background to-background py-16 px-4">
-        <div className="container mx-auto max-w-4xl text-center">
-          <h1 className="font-serif text-4xl sm:text-5xl font-bold tracking-tight text-foreground mb-4">
-            PRaww Reads
-          </h1>
-          <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Discover stories, share books, connect with readers.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link to="/marketplace" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground font-semibold px-6 py-3 hover:bg-primary/90 transition-colors">
-              Browse Marketplace
+      <div className="bg-gradient-to-br from-primary/10 via-background to-background py-8 px-4">
+        <div className="container mx-auto max-w-4xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-1">
+              Welcome back
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Discover stories, share books, connect with readers.
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Link to="/marketplace" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground font-semibold px-5 py-2 text-sm hover:bg-primary/90 transition-colors">
+              Marketplace
             </Link>
             <button
               onClick={() => document.getElementById("stories-section")?.scrollIntoView({ behavior: "smooth" })}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background font-semibold px-6 py-3 hover:bg-muted transition-colors cursor-pointer">
-              Start Reading
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background font-semibold px-5 py-2 text-sm hover:bg-muted transition-colors cursor-pointer">
+              Read
             </button>
           </div>
         </div>

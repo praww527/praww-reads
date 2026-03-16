@@ -11,8 +11,8 @@ packages = ["cargo", "libiconv", "libxcrypt", "openssl", "pkg-config", "rustc"]
 [userenv.shared]
 DB_NAME = "prawwreads"
 SMTP_FROM = "noreply@praww.co.za"
-VAPID_PUBLIC_KEY = "BFTCwX2ycZVlnwDMX-tXdhN9izr1B7nz6bO7rW8bgSYEfXWq0fgK1RjONWOd2qrux6qRRJt48QriJ2JzSl5FCvs"
-VAPID_PRIVATE_KEY = "MHcCAQEEIAhDh5qHVlnxa1-PsxRnnsviyCypXdgNX6KvMKbuZUtKoAoGCCqGSM49AwEHoUQDQgAEVMLBfbJxlWWfAMxf61d2E32LOvUHufPps7utbxuBJgR9darR-ArVGM41Y53aqu7HqpFEm3jxCuInYnNKXkUK-w"
+VAPID_PUBLIC_KEY = "BIyYC0WOL7RgtV1O6XmHzL9vB7I93-z6uj4moQOBCRGbfxH1_NqxOgIf9IkahHv9LCLpcWNoLdPxIfDLDz5d4gE"
+VAPID_PRIVATE_KEY = "MHcCAQEEIKc_nT17kAuodVMuJG6-Epj_5R1BFE-FFoeRKNSNNTfooAoGCCqGSM49AwEHoUQDQgAEjJgLRY4vtGC1XU7peYfMv28Hsj3f7Pq6PiahA4EJEZt_EfX82rE6Ah_0iRqEe_0sIulxY2gt0_Eh8MsPPl3iAQ"
 VAPID_CLAIMS_EMAIL = "mailto:noreply@praww.co.za"
 
 [workflows]

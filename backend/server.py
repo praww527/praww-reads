@@ -2375,6 +2375,31 @@ async def push_unsubscribe(data: dict, current_user: dict = Depends(get_current_
         await db.push_subscriptions.delete_one({"endpoint": endpoint, "user_id": current_user["id"]})
     return {"unsubscribed": True}
 
+@api_router.post("/push/broadcast")
+async def push_broadcast(data: dict, current_user: dict = Depends(get_current_user)):
+    if not current_user.get("is_admin"):
+        raise HTTPException(403, "Admin only")
+    title = data.get("title", "PRaww Reads")
+    body = data.get("body", "")
+    url = data.get("url", "/")
+    if not _vapid_private_pem:
+        raise HTTPException(503, "Push not configured")
+    subs = await db.push_subscriptions.find({}, {"_id": 0}).to_list(10000)
+    sent = 0
+    failed = 0
+    loop = asyncio.get_event_loop()
+    payload = _json.dumps({"title": title, "body": body, "url": url})
+    claims = {"sub": VAPID_CLAIMS_EMAIL}
+    for sub in subs:
+        sub_info = {"endpoint": sub["endpoint"], "keys": {"p256dh": sub.get("p256dh",""), "auth": sub.get("auth","")}}
+        err = await loop.run_in_executor(_push_executor, _do_webpush_sync, sub_info, payload, _vapid_private_pem, claims)
+        if err:
+            await db.push_subscriptions.delete_one({"endpoint": sub["endpoint"]})
+            failed += 1
+        else:
+            sent += 1
+    return {"sent": sent, "failed": failed}
+
 @api_router.get("/")
 async def root():
     return {"message": "PRaww Reads API"}
