@@ -2,13 +2,12 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/AuthContext";
 import { apiFetch } from "../lib/api";
-import { BookOpen, MessageCircle, Menu, X, LogOut, User, Search } from "lucide-react";
+import { BookOpen, MessageCircle, X, LogOut, User, Search } from "lucide-react";
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -20,10 +19,6 @@ export default function Navbar() {
   useEffect(() => {
     if (searchOpen) setTimeout(() => searchInputRef.current?.focus(), 50);
   }, [searchOpen]);
-
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [location.pathname]);
 
   useEffect(() => {
     if (!isAuthenticated) { setUnreadDMs(0); setUnreadMarket(0); return; }
@@ -43,7 +38,6 @@ export default function Navbar() {
     if (searchQuery.trim()) {
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}&type=all`);
       setSearchOpen(false);
-      setMobileOpen(false);
       setSearchQuery("");
     }
   }
@@ -54,7 +48,6 @@ export default function Navbar() {
     await logout();
     navigate("/");
     setDropdownOpen(false);
-    setMobileOpen(false);
   }
 
   const displayName = user?.first_name && user?.last_name

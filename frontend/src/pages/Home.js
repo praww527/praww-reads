@@ -54,7 +54,7 @@ export default function Home() {
               </h1>
             </div>
             <p className="text-base text-muted-foreground mb-6 max-w-md mx-auto">
-              A literary community for authors and readers — share stories, discover great writing, connect with book lovers.
+              Where great stories are discovered.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link
@@ -75,7 +75,7 @@ export default function Home() {
 
         {/* Trending Stories — visible but locked */}
         {!loading && trending.length > 0 && (
-          <div className="container mx-auto max-w-7xl px-4 py-14">
+          <div className="container mx-auto max-w-7xl px-4 py-5">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="h-5 w-5 text-primary" />
               <h2 className="font-serif text-2xl font-bold">Trending Stories</h2>
@@ -111,7 +111,7 @@ export default function Home() {
               Discover Great Stories
             </h1>
             <p className="text-sm text-muted-foreground">
-              Discover stories, share books, connect with readers.
+              Where great stories are discovered.
             </p>
           </div>
           <div className="flex gap-2 shrink-0">
@@ -124,9 +124,9 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="container mx-auto max-w-7xl px-4 py-12">
+      <div className="container mx-auto max-w-7xl px-4 py-5">
         {trending.length > 0 && (
-          <section className="mb-14">
+          <section className="mb-6">
             <div className="flex items-center gap-2 mb-6">
               <TrendingUp className="h-5 w-5 text-primary" />
               <h2 className="font-serif text-2xl font-bold">Trending Stories</h2>
