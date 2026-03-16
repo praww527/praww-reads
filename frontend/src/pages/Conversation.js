@@ -4,7 +4,7 @@ import { apiFetch } from "../lib/api";
 import { useAuth } from "../hooks/AuthContext";
 import {
   ArrowLeft, Loader2, Send, Lock, ShieldCheck, AlertTriangle,
-  Pencil, Trash2, Check, X, Trash, MoreHorizontal
+  Pencil, Trash2, Check, X, Trash, MoreHorizontal, CheckCheck
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -392,6 +392,14 @@ export default function Conversation() {
                       <Lock className="h-2.5 w-2.5" />
                       {m.created_at ? formatDistanceToNow(new Date(m.created_at)) + " ago" : ""}
                       {m.edited_at && <span className="italic">(edited)</span>}
+                      {isMine && (
+                        <span className="ml-auto flex items-center">
+                          {m.is_read
+                            ? <CheckCheck className="h-3 w-3 text-blue-300" title="Read" />
+                            : <Check className="h-3 w-3 opacity-70" title="Sent" />
+                          }
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}

@@ -108,20 +108,17 @@ export default function Home() {
         <div className="container mx-auto max-w-4xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-1">
-              Welcome back
+              Discover Great Stories
             </h1>
             <p className="text-sm text-muted-foreground">
               Discover stories, share books, connect with readers.
             </p>
           </div>
           <div className="flex gap-2 shrink-0">
-            <Link to="/marketplace" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground font-semibold px-5 py-2 text-sm hover:bg-primary/90 transition-colors">
-              Marketplace
-            </Link>
             <button
               onClick={() => document.getElementById("stories-section")?.scrollIntoView({ behavior: "smooth" })}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background font-semibold px-5 py-2 text-sm hover:bg-muted transition-colors cursor-pointer">
-              Read
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground font-semibold px-5 py-2 text-sm hover:bg-primary/90 transition-colors cursor-pointer">
+              Start Reading
             </button>
           </div>
         </div>
