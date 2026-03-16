@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../hooks/AuthContext";
 import { apiFetch } from "../lib/api";
-import { BookOpen, MessageCircle, User, PenLine, Settings2 } from "lucide-react";
+import { BookOpen, MessageCircle, User, PenLine } from "lucide-react";
 
 export default function BottomNav() {
   const { isAuthenticated } = useAuth();
@@ -35,7 +35,6 @@ export default function BottomNav() {
     { to: "/messages",   label: "Messages", Icon: MessageCircle, badge: unread },
     { to: "/write",      label: "Write",    Icon: PenLine },
     { to: "/profile/me", label: "Profile",  Icon: User },
-    { to: "/settings",   label: "Settings", Icon: Settings2 },
   ];
 
   return (
