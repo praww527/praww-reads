@@ -158,6 +158,11 @@ export default function Conversation() {
 
   async function saveEdit(msg) {
     if (!editText.trim() || savingEdit) return;
+    if (!recipientPublicKey) {
+      setSendError("Cannot edit: recipient encryption key not available");
+      setTimeout(() => setSendError(""), 4000);
+      return;
+    }
     setSavingEdit(true);
     try {
       const myPublicKeyJwk = JSON.parse(localStorage.getItem("praww_public_key"));
@@ -319,7 +324,7 @@ export default function Conversation() {
               {/* Action buttons — revealed on swipe or click */}
               {isMine && isActive && !isEditing && (
                 <div className="flex items-center gap-1 shrink-0">
-                  {canEdit(m) && (
+                  {canEdit(m) && recipientPublicKey && (
                     <button
                       onClick={(e) => { e.stopPropagation(); startEdit(m); }}
                       className="p-1.5 rounded-full bg-muted hover:bg-primary/10 hover:text-primary text-muted-foreground transition-colors"

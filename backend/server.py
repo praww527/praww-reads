@@ -306,9 +306,6 @@ class UpdateProfileInput(BaseModel):
     profile_image_url: Optional[str] = None
     hide_online_status: Optional[bool] = None
 
-class SendDMInput(BaseModel):
-    content: str
-
 class ChangePasswordInput(BaseModel):
     current_password: str
     new_password: str
@@ -2238,14 +2235,14 @@ async def send_dm(data: SendDMInput, current_user: dict = Depends(get_current_us
 
 @api_router.get("/dm/unread-count")
 async def get_dm_unread_count(current_user: dict = Depends(get_current_user)):
-    count = await db.direct_messages.count_documents({"receiver_id": current_user["id"], "is_read": False})
+    count = await db.direct_messages.count_documents({"receiver_id": current_user["id"], "is_read": False, "deleted": {"$ne": True}})
     return {"count": count}
 
 @api_router.get("/dm/conversations")
 async def get_dm_conversations(current_user: dict = Depends(get_current_user)):
     uid = current_user["id"]
     msgs = await db.direct_messages.find(
-        {"$or": [{"sender_id": uid}, {"receiver_id": uid}]},
+        {"$or": [{"sender_id": uid}, {"receiver_id": uid}], "deleted": {"$ne": True}},
         {"_id": 0, "id": 1, "sender_id": 1, "receiver_id": 1, "created_at": 1, "is_read": 1}
     ).sort("created_at", -1).to_list(100)
     seen: dict = {}
